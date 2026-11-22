@@ -157,6 +157,8 @@
   .tmore{font-size:1.1vw;color:var(--muted);padding-top:.4vw}
   .tnotes{font-size:1.1vw;color:#b8c1ca;margin-top:.7vw;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .tv-empty{font-size:2.5vw;color:var(--muted);text-align:center;margin-top:20vh;line-height:1.4}
+  .ver{font-size:11px;color:var(--muted);text-align:center;margin-top:28px;opacity:.7}
+  .tv .ver{position:fixed;left:1vw;bottom:.6vw;margin:0;font-size:.75vw;opacity:.5}
   .tv-off{position:fixed;right:1vw;bottom:1vw;font-size:1vw;color:var(--danger)}
 </style>
 </head>
@@ -171,6 +173,10 @@
    SETTINGS — edit these
    ===================================================================== */
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
+
+// Bump on every release so you can see which version a phone or the TV is running
+const APP_VERSION = "1.3.0";
+const APP_BUILD   = "2026-11-22";
 const CURRENCY  = "R";
 
 // Staff logins (Erik, plus anyone helping him). Email in lower case, cell numbers as +27…
@@ -189,6 +195,9 @@ const FIREBASE_CONFIG = null;
 /* ===================================================================== */
 
 const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span></div><div class="ls">PLETTENBERG BAY</div></div>`;
+
+const VERSION_TAG = `<div class="ver">v${APP_VERSION} · ${APP_BUILD}</div>`;
+console.info(`Enduroworx job board v${APP_VERSION} (${APP_BUILD})`);
 
 const STATUSES = {
   booked:        {label:"Booked in"},
@@ -461,6 +470,7 @@ function renderLogin(){
     <p class="lead">Sign in to book your bike in and follow its progress.</p>
     ${demo?`<div class="banner">Demo mode: no real email or SMS is sent. You're signed in straight away, and any code works. Sign in as <b>${esc(STAFF[0])}</b> to see Erik's view.</div>`:''}
     ${body}
+    ${VERSION_TAG}
   </div>`;
 }
 
@@ -470,6 +480,7 @@ function renderProfile(){
     <p class="lead">What name should we put on your job card?</p>
     <input class="in" id="pname" placeholder="Your name" autocomplete="name" value="${esc(state.profile?.name||'')}">
     <button class="btn primary block" data-act="save-profile">Continue</button>
+    ${VERSION_TAG}
   </div>`;
 }
 
@@ -578,6 +589,7 @@ function renderBoard(){
       : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}
+    ${VERSION_TAG}
   </div>`;
 }
 
@@ -777,6 +789,7 @@ function renderTV(){
       ${qrImg?`<div class="tv-qr"><img src="${qrImg}" alt=""><span>Scan to book your bike in or follow its progress</span></div>`:''}
     </div>
     <div class="tv-main" id="tvmain">${main}</div>
+    ${VERSION_TAG}
     ${(!state.online && B()?.mode==='live' && !state.err)?`<div class="tv-off">● Offline — reconnecting</div>`:''}
   </div>`;
 }
