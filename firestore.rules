@@ -1,0 +1,46 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{db}/documents {
+
+    // ---- Staff: must match STAFF in index.html (email lower case, cell as +27…) ----
+    function staffList() { return ['erik@example.com', '+27820000000']; }
+
+    function signedIn()   { return request.auth != null; }
+    function myEmail()    { return request.auth.token.get('email', '').lower(); }
+    function myPhone()    { return request.auth.token.get('phone_number', ''); }
+    function isStaff()    { return signedIn() && (myEmail() in staffList() || myPhone() in staffList()); }
+    function isCustomer() { return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
+    function mine(d)      { return isCustomer() && d.contactKey != ''
+                                   && (d.contactKey == myEmail() || d.contactKey == myPhone()); }
+    // A TV screen: anonymous login that has registered a screen token that still exists
+    function isScreen() {
+      return signedIn()
+        && exists(/databases/$(db)/documents/screenSessions/$(request.auth.uid))
+        && exists(/databases/$(db)/documents/screens/$(get(/databases/$(db)/documents/screenSessions/$(request.auth.uid)).data.token));
+    }
+
+    match /jobs/{id} {
+      // Staff see everything, screens see the board, customers see only their own jobs
+      allow read:   if isStaff() || isScreen() || mine(resource.data);
+      // Customers can book in for themselves only
+      allow create: if isStaff() || (mine(request.resource.data) && request.resource.data.status == 'booked');
+      // Customers can add/edit items on their own jobs but can't change the status or move the job
+      allow update: if isStaff() || (mine(resource.data) && mine(request.resource.data)
+                                     && request.resource.data.status == resource.data.status);
+      allow delete: if isStaff();
+    }
+
+    match /users/{uid} {
+      allow read:  if isStaff() || (signedIn() && request.auth.uid == uid);
+      allow write: if signedIn() && request.auth.uid == uid;
+    }
+
+    match /screens/{token} {
+      allow read, write: if isStaff();
+    }
+
+    match /screenSessions/{uid} {
+      allow read, write: if signedIn() && request.auth.uid == uid;
+    }
+  }
+}
