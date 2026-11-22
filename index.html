@@ -115,7 +115,9 @@
   .wday.we{border-color:var(--accent)}
   .wd{font-size:12px;color:var(--muted);font-weight:600}
   .wday.we .wd{color:var(--accent)}
-  .wi{font-size:22px;line-height:1.3}
+  .wi{font-size:24px;line-height:1;margin:3px 0 2px}
+  .wi svg,.wr svg{vertical-align:middle}
+  .wr svg{width:.95em;height:.95em;margin-top:-.15em}
   .wt{font-size:14px;font-weight:700}
   .wt span{color:var(--muted);font-weight:400;margin-left:4px}
   .wr{font-size:11px;color:var(--muted)}
@@ -126,7 +128,7 @@
   /* ---------- TV board ---------- */
   body.tv{overflow:hidden;cursor:none}
   .tv-wrap{height:100vh;display:flex;flex-direction:column;padding:1.6vw 2vw 1vw}
-  .tv-head{display:flex;align-items:center;gap:2vw;margin-bottom:1.2vw}
+  .tv-head{display:flex;align-items:center;gap:2vw;margin-bottom:1vw;padding-right:13vw;min-height:11.5vw} /* right side left clear for UrbanLoop's own QR badge */
   .tv-head .logo{font-size:3.2vw}
   .tv-count{font-size:1.05vw;color:var(--muted)}
   .tv-clockbox{display:flex;flex-direction:column;align-items:flex-end;margin-left:auto}
@@ -135,8 +137,10 @@
   .tv .wday{min-width:0;width:5.3vw;padding:.35vw .2vw;border-radius:.6vw}
   .tv .wd{font-size:.85vw} .tv .wi{font-size:1.6vw} .tv .wt{font-size:1vw} .tv .wr{font-size:.75vw}
   .tv .wv{font-size:.72vw;margin-top:.25vw;padding:.1vw .2vw;border-radius:.4vw}
-  .tv-qr{display:flex;align-items:center;gap:.8vw;font-size:1vw;color:var(--muted);max-width:14vw;line-height:1.3}
-  .tv-qr img{width:6.5vw;height:6.5vw;background:#fff;padding:.3vw;border-radius:.5vw;image-rendering:pixelated}
+  .tv-foot{display:flex;align-items:flex-end;gap:1vw;margin-top:.8vw}
+  .tv-qr{display:flex;align-items:center;gap:.9vw;margin-left:auto;font-size:1.05vw;color:var(--muted);line-height:1.3;text-align:right}
+  .tv-qr b{color:var(--text);font-size:1.2vw}
+  .tv-qr img{width:5.6vw;height:5.6vw;background:#fff;padding:.3vw;border-radius:.5vw;image-rendering:pixelated}
   .tv-main{flex:1;overflow:hidden}
   .tv-grid{display:grid;grid-template-columns:repeat(var(--cols,3),1fr);gap:1.2vw;align-items:start;transform-origin:top left}
   .tcard{background:var(--panel);border-radius:1vw;padding:1.2vw 1.3vw;border-top:.5vw solid var(--booked)}
@@ -162,7 +166,7 @@
   .tnotes{font-size:1.1vw;color:#b8c1ca;margin-top:.7vw;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
   .tv-empty{font-size:2.5vw;color:var(--muted);text-align:center;margin-top:20vh;line-height:1.4}
   .ver{font-size:11px;color:var(--muted);text-align:center;margin-top:28px;opacity:.7}
-  .tv .ver{position:fixed;left:1vw;bottom:.6vw;margin:0;font-size:.75vw;opacity:.5}
+  .tv .ver{margin:0;font-size:.75vw;opacity:.5}
   .tv-off{position:fixed;right:1vw;bottom:1vw;font-size:1vw;color:var(--danger)}
 </style>
 </head>
@@ -179,7 +183,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.3.2";
+const APP_VERSION = "1.3.3";
 const APP_BUILD   = "2026-11-22";
 const CURRENCY  = "R";
 
@@ -398,7 +402,20 @@ function demoBackend(){
 /* =====================================================================
    RIDING FORECAST
    ===================================================================== */
-const WX_ICON = c => c===0?'☀️':c<=2?'🌤️':c===3?'☁️':c<=48?'🌫️':c<=57?'🌦️':c<=67?'🌧️':c<=77?'❄️':c<=82?'🌦️':'⛈️';
+const SVG = (inner) => `<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true">${inner}</svg>`;
+const I_SUN   = `<circle cx="12" cy="12" r="4.5" fill="#f7c948"/><g stroke="#f7c948" stroke-width="1.8" stroke-linecap="round"><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></g>`;
+const I_CLOUD = (y=0, c='#d4dae3') => `<path transform="translate(0 ${y})" fill="${c}" d="M7 19h10.5a4 4 0 0 0 .6-7.95A5.5 5.5 0 0 0 7.6 9.6 4.7 4.7 0 0 0 7 19z"/>`;
+const I_RAIN  = `<g stroke="#6f9bff" stroke-width="1.8" stroke-linecap="round"><path d="M8 19.5l-1 2.5M12 19.5l-1 2.5M16 19.5l-1 2.5"/></g>`;
+const WX_ICON = c => SVG(
+    c === 0  ? I_SUN
+  : c <= 2   ? `<g transform="translate(-3 -3) scale(.8)">${I_SUN}</g>${I_CLOUD(1)}`
+  : c === 3  ? I_CLOUD(-1)
+  : c <= 48  ? `<g stroke="#aab3bf" stroke-width="2" stroke-linecap="round"><path d="M4 9h16M3 13h18M5 17h14"/></g>`
+  : c <= 67  ? `${I_CLOUD(-3)}${I_RAIN}`
+  : c <= 77  ? `${I_CLOUD(-3)}<g fill="#e8eef6"><circle cx="8" cy="20.5" r="1.3"/><circle cx="12" cy="21.5" r="1.3"/><circle cx="16" cy="20.5" r="1.3"/></g>`
+  : c <= 82  ? `<g transform="translate(-3 -4) scale(.8)">${I_SUN}</g>${I_CLOUD(-2)}${I_RAIN}`
+  :            `${I_CLOUD(-3,'#9aa3af')}<path fill="#f7c948" d="M12.5 15l-3 5h2.5l-1.5 4 4.5-6h-2.6l1.6-3z"/>`);
+const DROP = SVG(`<path fill="#6f9bff" d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/>`);
 function rideVerdict(d){
   if(d.code >= 95)                    return ['Storms', 'bad'];
   if(d.gust >= 60)                    return ['Gale', 'bad'];
@@ -427,7 +444,7 @@ function weatherStrip(){
     const label = d.date === today ? 'Today' : dt.toLocaleDateString('en-ZA',{weekday:'short'});
     return `<div class="wday ${dow===0||dow===6?'we':''}" title="Gusts ${Math.round(d.gust)} km/h · ${d.rain.toFixed(1)} mm">
       <div class="wd">${label}</div><div class="wi">${WX_ICON(d.code)}</div>
-      <div class="wt">${d.max}°<span>${d.min}°</span></div><div class="wr">💧${d.rainP}%</div>
+      <div class="wt">${d.max}°<span>${d.min}°</span></div><div class="wr">${DROP} ${d.rainP}%</div>
       <div class="wv v-${vc}">${vt}</div></div>`;
   }).join('');
   return VIEW === 'tv' ? `<div class="wx">${days}</div>`
@@ -809,17 +826,19 @@ function renderTV(){
   const main = state.err ? `<div class="tv-empty">${esc(state.err)}</div>`
     : !state.loaded ? `<div class="tv-empty">Loading…</div>`
     : open.length ? `<div class="tv-grid">${open.map(tvCard).join('')}</div>`
-    : `<div class="tv-empty">No bikes in the workshop 🏍️</div>`;
+    : `<div class="tv-empty">No bikes in the workshop</div>`;
   return `<div class="tv-wrap">
     <div class="tv-head">
       ${LOGO}
       ${weatherStrip()}
       <div class="tv-clockbox"><span class="tv-clock" id="clock"></span>
         <span class="tv-count">${state.loaded && !state.err ? `${open.length} bike${open.length===1?'':'s'} in` : ''}</span></div>
-      ${qrImg?`<div class="tv-qr"><img src="${qrImg}" alt=""><span>Scan to book your bike in or follow its progress</span></div>`:''}
     </div>
     <div class="tv-main" id="tvmain">${main}</div>
-    ${VERSION_TAG}
+    <div class="tv-foot">
+      ${VERSION_TAG}
+      ${qrImg?`<div class="tv-qr"><span><b>Book your bike in</b><br>or follow its progress</span><img src="${qrImg}" alt=""></div>`:''}
+    </div>
     ${(!state.online && B()?.mode==='live' && !state.err)?`<div class="tv-off">● Offline — reconnecting</div>`:''}
   </div>`;
 }
