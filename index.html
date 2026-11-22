@@ -175,13 +175,13 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.3.0";
+const APP_VERSION = "1.3.1";
 const APP_BUILD   = "2026-11-22";
 const CURRENCY  = "R";
 
 // Staff logins (Erik, plus anyone helping him). Email in lower case, cell numbers as +27…
 // These must ALSO be listed in staffList() in the Firestore rules.
-const STAFF = ["erik@example.com", "+27820000000"];
+const STAFF = ["erik@enduroworx.co.za", "+27832716949", "shannon@manapp.co.za"];
 
 // Riding forecast (Open-Meteo, free, no key). Point it at the trails if you prefer.
 const WEATHER = {lat:-34.0527, lon:23.3716, place:"Plett"};
@@ -191,7 +191,14 @@ const SMS_LOGIN = false;
 
 // Paste your Firebase web config here (Firebase console → Project settings → Your apps).
 // Leave as null for DEMO mode: no real codes are sent, data stays in this browser.
-const FIREBASE_CONFIG = null;
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBsCDTIzTbnEMqJgrx6IvLUDUKZkqSDjG8",
+  authDomain: "enduroworx-jobs.firebaseapp.com",
+  projectId: "enduroworx-jobs",
+  storageBucket: "enduroworx-jobs.firebasestorage.app",
+  messagingSenderId: "496417759563",
+  appId: "1:496417759563:web:5bb641a544d6ddf7c608ce"
+};
 /* ===================================================================== */
 
 const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span></div><div class="ls">PLETTENBERG BAY</div></div>`;
