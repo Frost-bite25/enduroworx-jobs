@@ -271,7 +271,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.7.2";
+const APP_VERSION = "1.7.3";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -720,10 +720,23 @@ async function loginCode(){
    BOARD (phone / laptop)
    ===================================================================== */
 const canEditItem = (it) => state.staff || (it.byUid === state.user?.uid && !it.done);
-// Work a customer asked for (flagged when added; older items: added under the customer's own name)
-const isCustItem = (it, job) => it.fromCustomer || (!('fromCustomer' in it) && !!it.by && it.by === job.customer);
-// Not yet acknowledged by staff
-const isNewReq = it => it.fromCustomer && it.seen === false && !it.done;
+// Staff accounts' ids (from the profiles staff can read), so anything added by someone else counts as a customer request,
+// even from a customer phone still running an older version of the app
+let _staffUids = null, _usersRef = null;
+function staffUids(){
+  if(_usersRef !== state.users){
+    _usersRef = state.users;
+    _staffUids = new Set(Object.entries(state.users || {})
+      .filter(([, u]) => [u.email, u.phone].map(normContact).some(k => STAFF_KEYS.includes(k))).map(([id]) => id));
+  }
+  if(state.staff && state.user) _staffUids.add(state.user.uid);
+  return _staffUids;
+}
+const byCustomer = it => it.fromCustomer === true || (it.fromCustomer === undefined && state.usersLoaded && !!it.byUid && !staffUids().has(it.byUid));
+// Work a customer asked for
+const isCustItem = (it, job) => byCustomer(it) || (it.fromCustomer === undefined && !!it.by && it.by === job.customer);
+// Not yet acknowledged by staff (Got it, or ticked done)
+const isNewReq = it => byCustomer(it) && it.seen !== true && !it.done;
 const newReqs = job => itemsOf(job).filter(isNewReq);
 
 function jobCard(job){
@@ -860,7 +873,7 @@ function renderCustomers(){
 let unsubUsers = null;
 function showCustomers(){
   state.page = 'customers';
-  unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; render(); },
+  unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; state.usersLoaded = true; render(); },
     err => { state.usersErr = friendlyError(err); render(); });
   render();
 }
@@ -1025,7 +1038,7 @@ function openJobDialog(job, preset){
         (f.items||'').split('\n').map(l => l.trim()).filter(Boolean).forEach((l,i) => {
           const p = staff ? parseLine(l) : {text:l, cost:0};
           items[uid()] = {text:p.text, cost:p.cost, done:false, by:staff ? myName() : data.customer, byUid:state.user.uid, t:now+i,
-            ...(staff ? {} : {fromCustomer:true, seen:false})};
+            ...(staff ? {fromCustomer:false} : {fromCustomer:true, seen:false})};
         });
         const newId = await B().addJob({...data, status:'booked', createdAt:now, createdBy:state.user.uid, items});
         if(!staff){ rememberJob(newId); dlg.close(); toast('Booked in! This phone will remember your bike.'); startBoard(); return; }
@@ -1132,7 +1145,7 @@ function addItem(id){
   delete state.drafts['t:'+id]; delete state.drafts['c:'+id];
   const by = state.staff ? myName() : (state.jobs[id]?.customer || loadMe().name || '');
   act(() => B().updateJob(id, {[`items.${uid()}`]:{text:t, cost, done:false, by, byUid:state.user.uid, t:Date.now(),
-    ...(state.staff ? {} : {fromCustomer:true, seen:false})}, ...touch()}));
+    ...(state.staff ? {fromCustomer:false} : {fromCustomer:true, seen:false})}, ...touch()}));
 }
 
 app.addEventListener('click', async e => {
@@ -1185,6 +1198,7 @@ app.addEventListener('click', async e => {
     case 'collected': act(() => B().updateJob(id, {status:'collected', collectedAt:Date.now(), ...touch()})); break;
     case 'seen-all': {
       const patch = {}; newReqs(job).forEach(it => patch[`items.${it.id}.seen`] = true);
+      if(!Object.keys(patch).length) break;
       act(() => B().updateJob(id, patch)); break; }
     case 'invoiced': act(() => B().updateJob(id, {status:'invoiced', invoicedAt:Date.now(), ...touch()})); break;
     case 'reopen': act(() => B().updateJob(id, {status:'ready', ...touch()})); break;
@@ -1195,7 +1209,7 @@ app.addEventListener('click', async e => {
 app.addEventListener('change', e => {
   const el = e.target, {act:a, id, item} = el.dataset;
   if(a === 'tick') act(() => B().updateJob(id, {[`items.${item}.done`]:el.checked, [`items.${item}.doneBy`]:el.checked?myName():'',
-    ...(state.jobs[id]?.items?.[item]?.fromCustomer ? {[`items.${item}.seen`]:true} : {}), ...touch()}));
+    [`items.${item}.seen`]:true, ...touch()}));
   if(a === 'status') act(() => B().updateJob(id, {status:el.value, ...(el.value==='invoiced'?{invoicedAt:Date.now()}:{}), ...(el.value==='collected'?{collectedAt:Date.now()}:{}), ...touch()}));
 });
 app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k){ state.drafts[k] = e.target.value; if(k === 'csearch') render(); } });
@@ -1293,7 +1307,7 @@ function startBoard(){
     state.sharedWeatherAt = Math.max(state.sharedWeatherAt||0, w?.fetchedAt||0);
     setWeather(w); shareWeather();
   });
-  if(state.staff) unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; render(); },
+  if(state.staff) unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; state.usersLoaded = true; render(); },
     err => { state.usersErr = friendlyError(err); render(); });
   state.phase = 'board'; state.loaded = false; state.jobs = {}; render();
   unsubJobs && unsubJobs(); unsubJobs = null;
@@ -1320,7 +1334,7 @@ async function onUser(user){
   unsubJobs && unsubJobs(); unsubJobs = null;
   unsubScreens && unsubScreens(); unsubScreens = null;
   unsubUsers && unsubUsers(); unsubUsers = null;
-  state.users = {}; state.page = 'jobs'; state.jobFilter = null; state.custFilter = 'all';
+  state.users = {}; state.usersLoaded = false; state.page = 'jobs'; state.jobFilter = null; state.custFilter = 'all';
   if(dlg.open) dlg.close();
   state.user = user; state.jobs = {}; state.err = null;
   state.login = {method:state.login.method, step:'enter', value:'', busy:false};
