@@ -333,7 +333,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.9.4";
+const APP_VERSION = "1.9.5";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -1168,6 +1168,7 @@ function renderBoard(){
       </div>` : '';
   return `<div class="wrap">
     <div class="top">${LOGO}${conn}
+      ${!state.staff?`<button class="btn small ghost" data-act="staff-login">Staff sign-in</button>`:''}
       ${state.staff?`<button class="btn small" data-act="export" title="Download all jobs as a spreadsheet (backup)">⬇ Export</button>`:''}
       ${state.staff?`<button class="btn small" data-act="screens">TV screens</button>`:''}
       ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
