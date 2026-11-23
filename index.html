@@ -104,7 +104,7 @@
   .jl-row.s-ready{border-left-color:var(--ready)} .jl-row.s-collected{border-left-color:var(--collected)} .jl-row.s-invoiced{border-left-color:var(--invoiced)}
   .jl-row.exp{background:#1f2230}
   .jl-name b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .jl-name span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .jl-name > span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .jl-status select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
   .jl-prog{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)} .jl-prog .track{flex:1}
   .jl-due,.jl-booked,.jl-est{font-size:14px;white-space:nowrap} .jl-booked{color:var(--muted)}
@@ -142,6 +142,11 @@
   .lg-job{color:var(--muted);font-size:13px}
   .lg-body ul{margin:3px 0 0;padding-left:18px;font-size:13px;color:#c8d0d8} .lg-body li{margin:1px 0}
   .lgbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 16px 12px}
+  .mk{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;letter-spacing:.06em;border-radius:5px;padding:2px 7px 2px 5px;margin-bottom:5px;vertical-align:middle;line-height:1.4}
+  .mk .bk{width:20px;height:13px}
+  .mk.plain{background:var(--panel2);color:var(--muted);padding:2px 5px}
+  .mk.sm{font-size:10px;padding:1px 5px 1px 4px;margin:0 2px 0 0} .mk.sm .bk{width:16px;height:10px}
+  .mk.tv{font-size:.8vw;padding:.1vw .45vw .1vw .35vw;border-radius:.3vw;margin:0 .3vw 0 0;gap:.3vw} .mk.tv .bk{width:1.3vw;height:.85vw}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -344,7 +349,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.0.0";
+const APP_VERSION = "2.1.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -869,7 +874,7 @@ function jobCard(job){
   const sub = [job.bike, staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
-      <div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
+      <div>${makeBadge(job.bike)}<h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
         ${job.createdAt?`<div class="sub">Booked in ${esc(fmtStamp(job.createdAt))} <span class="ago">(${esc(ago(job.createdAt))})</span></div>`:''}
         ${job.due?`<div class="sub due ${isOpen(job)?dueClass(job.due):''}" style="color:var(--accent)">Wanted by ${esc(fmtDate(job.due))}${isOpen(job)?dueLabel(job.due):''}</div>`:''}</div>
       ${staff
@@ -992,6 +997,33 @@ function exportJobs(){
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   toast(`Exported ${jobs.length} job${jobs.length===1?'':'s'}`);
+}
+
+/* ---------- Bike make badge (brand colours + our own bike icon; no manufacturer artwork) ---------- */
+const MAKES = [
+  [/\bktm\b/i,                 'KTM',       '#ff6a00', '#111'],
+  [/husqvarna|\bhusky\b/i,       'HUSQVARNA', '#0b2d5b', '#fff'],
+  [/\bbeta\b/i,                 'BETA',      '#d71920', '#fff'],
+  [/gas\s?gas/i,                'GASGAS',    '#e30613', '#fff'],
+  [/sherco/i,                   'SHERCO',    '#0052a5', '#fff'],
+  [/yamaha/i,                   'YAMAHA',    '#1b3f94', '#fff'],
+  [/honda/i,                    'HONDA',     '#cc0000', '#fff'],
+  [/kawasaki|\bkawi\b/i,         'KAWASAKI',  '#5fb41f', '#111'],
+  [/suzuki/i,                   'SUZUKI',    '#ffd200', '#111'],
+  [/\btm\b/i,                   'TM',        '#0047ab', '#fff'],
+  [/rieju/i,                    'RIEJU',     '#d0021b', '#fff'],
+  [/fantic/i,                   'FANTIC',    '#c8102e', '#fff'],
+  [/triumph/i,                  'TRIUMPH',   '#1a1a1a', '#fff'],
+  [/stark/i,                    'STARK',     '#111',    '#fff'],
+  [/sur-?ron/i,                 'SUR-RON',   '#222',    '#fff'],
+];
+const BIKE_ICON = `<svg class="bk" viewBox="0 0 32 20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <circle cx="6" cy="14" r="4.5"/><circle cx="26" cy="14" r="4.5"/>
+  <path d="M6 14l6-7h6l3 3h3l2 4M12 7l4 7h4M18 7l-1-3h-3M21 10l3-5h3"/></g></svg>`;
+function makeBadge(bike, size){
+  const m = MAKES.find(([re]) => re.test(bike || ''));
+  return m ? `<span class="mk ${size||''}" style="background:${m[2]};color:${m[3]}">${BIKE_ICON}${m[1]}</span>`
+           : (bike ? `<span class="mk ${size||''} plain">${BIKE_ICON}</span>` : '');
 }
 
 /* ---------- Activity log: who changed what, when ---------- */
@@ -1123,7 +1155,7 @@ function jobList(jobs){
   const rows = jobs.map(job => {
     const s = stats(job), id = job.id, open = state.expanded.has(id), nr = newReqs(job).length;
     return `<div class="jl-row s-${esc(job.status)} ${open?'exp':''}" data-act="expand" data-id="${id}">
-      <div class="jl-name"><b>${esc(job.customer)}</b><span>${esc(job.bike||'')}</span></div>
+      <div class="jl-name"><b>${esc(job.customer)}</b><span>${makeBadge(job.bike,'sm')} ${esc(job.bike||'')}</span></div>
       <div class="jl-status"><select data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
         `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
       <div class="jl-prog"><div class="track"><i style="width:${s.pct}%"></i></div><span>${s.done}/${s.total}</span></div>
@@ -1613,7 +1645,7 @@ function tvCard(job){
   const s = stats(job), shown = s.items.slice(0, TV_MAX_ITEMS);
   return `<div class="tcard s-${esc(job.status)}">
     <div class="thead"><div class="tname">${esc(job.customer)}</div><div class="pill">${esc(STATUSES[job.status]?.label||job.status)}</div></div>
-    ${job.bike?`<div class="tbike">${esc(job.bike)}</div>`:''}
+    ${job.bike?`<div class="tbike">${makeBadge(job.bike,'tv')} ${esc(job.bike)}</div>`:''}
     ${job.createdAt?`<div class="tin">In since ${esc(fmtStamp(job.createdAt))} · ${esc(ago(job.createdAt))}</div>`:''}
     ${job.due?`<div class="tdue due ${dueClass(job.due)}">Wanted by ${esc(fmtDate(job.due))}${dueLabel(job.due)}</div>`:''}
     <div class="track"><i style="width:${s.pct}%"></i></div>
