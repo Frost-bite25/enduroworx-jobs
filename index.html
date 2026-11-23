@@ -28,7 +28,7 @@
   .logo.box{background:#000;padding:.35em .5em .3em;border-radius:.12em}
 
   /* ---------- Phone / laptop ---------- */
-  .wrap{max-width:820px;margin:0 auto;padding:16px 14px 80px}
+  .wrap{max-width:820px;margin:0 auto;padding:max(16px, env(safe-area-inset-top)) 14px 80px}
   .top{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}
   .top .logo{font-size:26px;margin-right:auto}
   .dot{width:9px;height:9px;border-radius:50%;display:inline-block;background:var(--ready);margin-right:6px}
@@ -46,7 +46,7 @@
   .linkbtn{background:none;border:0;color:var(--accent);padding:0;font-size:13px;text-decoration:underline}
   .bar2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
   .tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
-  .tabs button{background:none;border:0;padding:8px 14px;font-size:14px;color:var(--muted);flex:1}
+  .tabs button{background:none;border:0;padding:8px 14px;font-size:14px;color:var(--muted);flex:1;white-space:nowrap}
   .tabs button.on{background:var(--panel2);color:var(--text);font-weight:600}
   .spacer{flex:1}
   .banner{background:#3a2c0c;border:1px solid #6b4f12;color:#f7d28a;border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
@@ -135,6 +135,35 @@
   .v-good{background:#173d27;color:#5fe39a} .v-ok{background:#3d3215;color:#f5c45a}
   .v-mud{background:#3b2a1a;color:#e0a46a} .v-bad{background:#40191a;color:#ff7b7b}
 
+  /* ---------- iPad / tablet & laptop ---------- */
+  @media (min-width: 760px){
+    .wrap{max-width:1400px;padding:max(22px, env(safe-area-inset-top)) 28px 80px}
+    .top .logo{font-size:32px}
+    .who{font-size:14px}
+    .btn{padding:10px 16px;font-size:15px} .btn.small{padding:8px 13px;font-size:14px}
+    .tabs button{padding:10px 18px;font-size:15px}
+    .pagetabs{max-width:420px}
+    /* forecast fills the width instead of scrolling */
+    .wx{overflow:visible} .wday{flex:1 1 0;min-width:0;padding:10px 6px}
+    .wd{font-size:13px} .wi{font-size:30px} .wt{font-size:16px} .wr{font-size:12px} .wv{font-size:12px;padding:3px 4px}
+    /* cards side by side */
+    .joblist,.custlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+    .joblist .job,.custlist .cust{margin-bottom:0}
+    .job{padding:16px 18px}
+    .jhead h3{font-size:20px}
+    ul.items li{padding:10px 0}
+    ul.items li input[type=checkbox]{width:26px;height:26px}
+    .itext{font-size:16px}
+    .addrow input{font-size:16px;padding:11px 12px}
+    .csearch{max-width:520px}
+    dialog{width:min(640px,90vw)}
+    .land{margin-top:14vh}
+  }
+  @media (min-width: 1180px){
+    .joblist{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .custlist{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+
   /* ---------- TV board ---------- */
   body.tv{overflow:hidden;cursor:none}
   .tv-wrap{height:100vh;display:flex;flex-direction:column;padding:1.6vw 2vw 1vw}
@@ -193,7 +222,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.4.0";
+const APP_VERSION = "1.4.1";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -261,6 +290,8 @@ function normContact(s){
   else if(!d.startsWith('+')) d = '+' + d;
   return d;
 }
+// "+27821234567" → "082 123 4567" for display
+const showContact = k => /^\+27\d{9}$/.test(k||'') ? ('0' + k.slice(3)).replace(/^(\d{3})(\d{3})(\d{4})$/,'$1 $2 $3') : (k||'');
 const isEmail = s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 const isPhone = s => /^\+\d{9,15}$/.test(s);
 const STAFF_KEYS = STAFF.map(normContact);
@@ -574,7 +605,7 @@ const canEditItem = (it) => state.staff || (it.byUid === state.user.uid && !it.d
 
 function jobCard(job){
   const s = stats(job), id = job.id, staff = state.staff;
-  const sub = [job.bike, staff && job.contactKey].filter(Boolean).map(esc).join(' · ');
+  const sub = [job.bike, staff && showContact(job.contactKey)].filter(Boolean).map(esc).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
       <div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
@@ -670,7 +701,7 @@ function renderCustomers(){
   return `<input class="csearch" data-draft="csearch" type="search" placeholder="Search name, email or cell…" value="${esc(state.drafts.csearch||'')}">
     ${state.usersErr?`<div class="banner">Couldn’t load customers: ${esc(state.usersErr)}</div>`:''}
     <div class="cmeta" style="margin:0 0 10px">${regCount} registered customer${regCount===1?'':'s'}</div>
-    ${rows || `<div class="empty">${q ? 'No customers match your search.' : 'No customers have signed up yet.'}</div>`}`;
+    ${rows ? `<div class="custlist">${rows}</div>` : `<div class="empty">${q ? 'No customers match your search.' : 'No customers have signed up yet.'}</div>`}`;
 }
 let unsubUsers = null;
 function showCustomers(){
@@ -716,7 +747,7 @@ function renderBoard(){
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
     </div>
     ${!state.loaded ? `<div class="empty">Loading…</div>`
-      : list.length ? list.map(jobCard).join('')
+      : list.length ? `<div class="joblist">${list.map(jobCard).join('')}</div>`
       : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}`}
