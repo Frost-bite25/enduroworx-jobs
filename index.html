@@ -43,6 +43,7 @@
   .btn.ghost{background:none}
   .btn.danger{color:var(--danger)}
   .btn.block{width:100%;padding:12px}
+  .btn.wa{background:#0f3d24;border-color:#1d6b40;color:#7ff0a8}
   .linkbtn{background:none;border:0;color:var(--accent);padding:0;font-size:13px;text-decoration:underline}
   .bar2{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:14px}
   .tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
@@ -108,6 +109,11 @@
   .tag.grey{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
   .cmeta{font-size:13px;color:var(--muted);margin-top:3px}
   .clinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
+  .chip{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 11px;font-size:13px;color:var(--muted)}
+  .chip span{color:var(--text);font-weight:700;margin-left:2px}
+  .chip.on{background:var(--brand);border-color:var(--brand);color:#fff} .chip.on span{color:#fff}
+  .spill.mini{margin-left:0;font-size:11px;padding:2px 7px}
   .filterbar{display:flex;align-items:center;gap:8px;background:#11183a;border:1px solid #2a3a8a;border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:12px}
   .land{max-width:420px;margin:10vh auto;padding:20px}
   .land .logo{font-size:40px;display:flex;align-items:center;margin:0 auto 14px;width:max-content}
@@ -222,7 +228,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.4.1";
+const APP_VERSION = "1.5.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -235,6 +241,9 @@ const WEATHER = {lat:-34.0527, lon:23.3716, place:"Plett"};
 
 // SMS sign-in needs the Firebase Blaze (pay-as-you-go) plan. Leave false to offer email sign-in only.
 const SMS_LOGIN = false;
+
+// The workshop's WhatsApp number (customers' "WhatsApp Erik" button goes here)
+const WORKSHOP_WHATSAPP = "+27832716949";
 
 // Paste your Firebase web config here (Firebase console → Project settings → Your apps).
 // Leave as null for DEMO mode: no real codes are sent, data stays in this browser.
@@ -250,6 +259,7 @@ const FIREBASE_CONFIG = {
 
 const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span></div><div class="ls">PLETTENBERG BAY</div></div>`;
 
+const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 const VERSION_TAG = `<div class="ver">v${APP_VERSION} · ${APP_BUILD}</div>`;
 console.info(`Enduroworx job board v${APP_VERSION} (${APP_BUILD})`);
 
@@ -522,7 +532,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', page:'jobs', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
+  tab:'open', page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'email', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -641,6 +651,9 @@ function jobCard(job){
       <button class="btn small" data-act="add-item" data-id="${id}">Add</button>
     </div>` : ''}
     <div class="jfoot">
+      ${staff
+        ? (phoneForJob(job) ? `<a class="btn small wa" href="${esc(waLink(phoneForJob(job), waMessageFor(job)))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</a>` : '')
+        : (WORKSHOP_WHATSAPP ? `<a class="btn small wa" href="${esc(waToWorkshop(job))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp Erik</a>` : '')}
       <button class="btn small ghost" data-act="edit-job" data-id="${id}">Edit details</button>
       ${staff ? (job.status==='collected'
         ? `<button class="btn small ghost" data-act="reopen" data-id="${id}">Reopen</button>
@@ -675,23 +688,38 @@ function renderCustomers(){
   let list = customerList();
   if(q) list = list.filter(c => (c.name||'').toLowerCase().includes(q) || (c.email||'').includes(q)
       || (qd.length >= 3 && [c.contactPhone].some(ph => digits(ph).includes(qd) || ('0' + digits(ph).slice(2)).includes(qd))));
+  // Status filter chips: based on the customer's open jobs
+  const statusOf = c => {
+    const js = jobsFor(c.keys), open = js.filter(j => j.status !== 'collected');
+    return new Set([...open.map(j => j.status), open.length ? 'in_shop' : 'no_bike', ...(c.unregistered ? ['unreg'] : [])]);
+  };
+  const FILTERS = [['all','All'],['in_shop','Bike in workshop'],['ready','Ready for collection'],['waiting_parts','Waiting for parts'],
+    ['in_progress','In progress'],['booked','Booked in'],['no_bike','No bike in'],['unreg','Not signed in yet']];
+  const tagged = list.filter(c => !c.keys.some(k => STAFF_KEYS.includes(k))).map(c => ({c, st:statusOf(c)}));
+  const count = f => f === 'all' ? tagged.length : tagged.filter(x => x.st.has(f)).length;
+  const cf = state.custFilter || 'all';
+  if(cf !== 'all') list = tagged.filter(x => x.st.has(cf)).map(x => x.c);
+  const chips = `<div class="chips">${FILTERS.map(([k,l]) => {
+    const n = count(k); if(!n && k !== 'all' && k !== cf) return '';
+    return `<button class="chip ${cf===k?'on':''} f-${k}" data-act="cust-filter" data-f="${k}">${l} <span>${n}</span></button>`; }).join('')}</div>`;
   const rank = c => c.keys.some(k => STAFF_KEYS.includes(k)) ? 2 : c.unregistered ? 1 : 0;
   list.sort((a,b) => (rank(a) - rank(b)) || (a.name||'').localeCompare(b.name||''));
   const regCount = Object.values(state.users||{}).filter(u => ![u.email,u.phone].map(normContact).some(k => STAFF_KEYS.includes(k))).length;
   const rows = list.map(c => {
-    const js = jobsFor(c.keys), open = js.filter(j => j.status !== 'collected').length;
+    const js = jobsFor(c.keys), openJobs = js.filter(j => j.status !== 'collected'), open = openJobs.length;
+    const pills = [...new Set(openJobs.map(j => j.status))].map(st => `<span class="spill mini s-${st}">${esc(STATUSES[st]?.label||st)}</span>`).join('');
     const isStaffRow = c.keys.some(k => STAFF_KEYS.includes(k));
     const ph = c.contactPhone, wa = digits(ph);
     const filterKey = esc(c.keys.join('|'));
     return `<div class="cust ${c.unregistered?'unreg':''}">
       <div class="chead"><b>${esc(c.name || 'No name yet')}</b>
         ${isStaffRow?'<span class="tag">STAFF</span>':''}
-        ${c.unregistered?'<span class="tag grey">Not signed in yet</span>':''}</div>
+        ${c.unregistered?'<span class="tag grey">Not signed in yet</span>':''}${pills}</div>
       <div class="cmeta">${[c.email, ph && ('0' + digits(ph).slice(2)).replace(/^(\d{3})(\d{3})(\d+)$/,'$1 $2 $3')].filter(Boolean).map(esc).join(' · ')}</div>
       <div class="cmeta">${c.createdAt ? `Joined ${esc(new Date(c.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}))} · ` : ''}${
         js.length ? `<b style="color:var(--text)">${open}</b> open · ${js.length} job${js.length===1?'':'s'} in total` : 'No jobs yet'}</div>
       <div class="clinks">
-        ${ph?`<a class="btn small" href="tel:${esc(ph)}">Call</a><a class="btn small" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:''}
+        ${ph?`<a class="btn small" href="tel:${esc(ph)}">Call</a><a class="btn small wa" href="${esc(waLink(ph, `Hi ${firstName(c.name)}, `))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp</a>`:''}
         ${c.email?`<a class="btn small" href="mailto:${esc(c.email)}">Email</a>`:''}
         ${js.length?`<button class="btn small" data-act="cust-jobs" data-keys="${filterKey}" data-name="${esc(c.name||'')}">View jobs</button>`:''}
         <button class="btn small" data-act="cust-book" data-key="${esc(c.keys[0]||'')}" data-name="${esc(c.name||'')}">+ Book in</button>
@@ -699,9 +727,10 @@ function renderCustomers(){
     </div>`;
   }).join('');
   return `<input class="csearch" data-draft="csearch" type="search" placeholder="Search name, email or cell…" value="${esc(state.drafts.csearch||'')}">
+    ${chips}
     ${state.usersErr?`<div class="banner">Couldn’t load customers: ${esc(state.usersErr)}</div>`:''}
     <div class="cmeta" style="margin:0 0 10px">${regCount} registered customer${regCount===1?'':'s'}</div>
-    ${rows ? `<div class="custlist">${rows}</div>` : `<div class="empty">${q ? 'No customers match your search.' : 'No customers have signed up yet.'}</div>`}`;
+    ${rows ? `<div class="custlist">${rows}</div>` : `<div class="empty">${q ? 'No customers match your search.' : cf !== 'all' ? 'No customers with that status.' : 'No customers have signed up yet.'}</div>`}`;
 }
 let unsubUsers = null;
 function showCustomers(){
@@ -710,6 +739,38 @@ function showCustomers(){
     err => { state.usersErr = friendlyError(err); render(); });
   render();
 }
+
+/* ---------- WhatsApp (click-to-chat: opens WhatsApp with the message typed, you tap Send) ---------- */
+const waLink = (phone, text) => `https://wa.me/${digits(phone)}${text ? '?text=' + encodeURIComponent(text) : ''}`;
+const firstName = n => (n || '').trim().split(/\s+/)[0] || 'there';
+// Best cell number for a job's customer: the job's own contact, else the registered customer's cell
+function phoneForJob(job){
+  const k = job.contactKey || '';
+  if(isPhone(k)) return k;
+  if(!k) return '';
+  const u = Object.values(state.users || {}).find(u => normContact(u.email) === k);
+  return u ? (u.phone || u.cell || '') : '';
+}
+function waMessageFor(job){
+  const s = stats(job), hi = `Hi ${firstName(job.customer)}`, bike = job.bike ? `your ${job.bike}` : 'your bike';
+  const done = s.items.filter(i => i.done).map(i => i.text), todo = s.items.filter(i => !i.done).map(i => i.text);
+  const total = s.est ? `\nEstimated total: ${money(s.est)}` : '';
+  const sign = `\n– Enduroworx Plettenberg Bay`, track = `\nFollow progress: ${baseUrl()}`;
+  switch(job.status){
+    case 'ready':
+      return `${hi}, ${bike} is ready for collection 🏍️${done.length ? `\nWork done: ${done.join(', ')}.` : ''}${total}${sign}`;
+    case 'waiting_parts':
+      return `${hi}, quick update on ${bike}: we're waiting for parts${todo.length ? ` for ${todo.join(', ')}` : ''}. We'll let you know as soon as they arrive.${track}${sign}`;
+    case 'in_progress':
+      return `${hi}, we've started on ${bike}. ${s.done} of ${s.total} jobs done so far.${total}${track}${sign}`;
+    case 'collected':
+      return `${hi}, thanks for bringing ${bike} to Enduroworx. Enjoy the ride! 🏍️${sign}`;
+    default:
+      return `${hi}, thanks for booking ${bike} in with us.${s.items.length ? ` Work requested: ${s.items.map(i => i.text).join(', ')}.` : ''}${track}${sign}`;
+  }
+}
+const waToWorkshop = job => waLink(WORKSHOP_WHATSAPP,
+  `Hi Erik, it's ${myName()} about my ${job.bike || 'bike'}${job.createdAt ? ` (booked in ${new Date(job.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short'})})` : ''}. `);
 
 function renderBoard(){
   const F = state.jobFilter;
@@ -910,6 +971,7 @@ app.addEventListener('click', async e => {
     case 'screens': openScreensDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
     case 'page': if(b.dataset.page === 'customers') showCustomers(); else { state.page = 'jobs'; render(); } break;
+    case 'cust-filter': state.custFilter = b.dataset.f; render(); break;
     case 'clear-filter': state.jobFilter = null; render(); break;
     case 'cust-jobs': state.jobFilter = {keys:b.dataset.keys.split('|'), name:b.dataset.name}; state.page = 'jobs'; state.tab = 'open'; render(); window.scrollTo(0,0); break;
     case 'cust-book': openJobDialog(null, {customer:b.dataset.name, contactKey:b.dataset.key}); break;
@@ -1027,6 +1089,8 @@ function startBoard(){
     state.sharedWeatherAt = Math.max(state.sharedWeatherAt||0, w?.fetchedAt||0);
     setWeather(w); shareWeather();
   });
+  if(state.staff) unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; render(); },
+    err => { state.usersErr = friendlyError(err); render(); });
   state.phase = 'board'; state.loaded = false; state.jobs = {}; render();
   unsubJobs && unsubJobs();
   const loadTimer = setTimeout(() => { if(!state.loaded){ state.loaded = true; state.err ||= 'still connecting…'; render(); } }, 10000);
@@ -1042,7 +1106,7 @@ async function onUser(user){
   unsubJobs && unsubJobs(); unsubJobs = null;
   unsubScreens && unsubScreens(); unsubScreens = null;
   unsubUsers && unsubUsers(); unsubUsers = null;
-  state.users = {}; state.page = 'jobs'; state.jobFilter = null;
+  state.users = {}; state.page = 'jobs'; state.jobFilter = null; state.custFilter = 'all';
   if(dlg.open) dlg.close();
   state.user = user; state.jobs = {}; state.err = null;
   if(!user || user.anon){
