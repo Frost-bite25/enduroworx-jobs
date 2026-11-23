@@ -69,10 +69,9 @@
   .tabs button.toinv .n{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:10px;background:#c0392b;color:#fff;font-weight:700;font-size:12px;line-height:20px}
   .tabs button.toinv.on{background:#3a1515;color:#ffb3b3}
   .reqbar{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#3a2c0c;border:1px solid #8a6414;color:#ffd77a;border-radius:10px;padding:7px 8px 7px 12px;margin-top:10px;font-size:14px}
-  ul.items li.custitem{box-shadow:inset 3px 0 0 #f5c542;padding-left:8px}
   ul.items li.newreq{background:#3a2c0c;border-radius:8px;box-shadow:inset 3px 0 0 #f5c542;padding-left:8px;padding-right:4px}
   .newtag{display:inline-block;font-size:10px;font-weight:800;letter-spacing:.04em;background:#f5c542;color:#2a1d00;border-radius:4px;padding:1px 5px;margin:2px 0}
-  .custtag{display:inline-block;font-size:10px;font-weight:700;color:#f5c542;margin:2px 0}
+  .custtag{display:inline-block;font-size:10px;font-weight:600;color:var(--muted);margin:2px 0}
   .tnew{display:inline-block;margin-top:.6vw;font-size:.85vw;font-weight:800;letter-spacing:.05em;background:#f5c542;color:#2a1d00;border-radius:.3vw;padding:.15vw .5vw}
   ul.titems li.tnewitem{color:#ffd77a;font-weight:600}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
@@ -272,7 +271,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.7.1";
+const APP_VERSION = "1.7.2";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -319,6 +318,8 @@ const OPEN_STATUSES = ['booked','in_progress','waiting_parts','ready'];
 // Work is finished but Erik hasn't invoiced it yet
 const TO_INVOICE = ['ready','collected'];
 const isOpen = j => OPEN_STATUSES.includes(j.status);
+// Staff "Open" tab: bikes still being worked on (Ready for collection moves to "To invoice")
+const WORK_STATUSES = ['booked','in_progress','waiting_parts'];
 // Due-date order: soonest "wanted by" first, then jobs with no date (oldest booking first)
 const byDue = (a,b) => (a.due ? 0 : 1) - (b.due ? 0 : 1) || (a.due||'').localeCompare(b.due||'') || (a.createdAt||0) - (b.createdAt||0);
 function dueClass(d){
@@ -747,8 +748,8 @@ function jobCard(job){
         <span>Estimate <b>${s.est?money(s.est):'TBC'}</b>${s.doneCost && s.done<s.total?` · ${money(s.doneCost)} done`:''}</span></div>
     </div>
     <ul class="items">${s.items.map(it => {
-      const ed = canEditItem(it), cust = staff && isCustItem(it, job), fresh = staff && isNewReq(it);
-      return `<li class="${it.done?'done':''} ${cust?'custitem':''} ${fresh?'newreq':''}">
+      const ed = canEditItem(it), fresh = staff && isNewReq(it), cust = staff && !fresh && isCustItem(it, job);
+      return `<li class="${it.done?'done':''} ${fresh?'newreq':''}">
         <input type="checkbox" data-act="tick" data-id="${id}" data-item="${it.id}" ${it.done?'checked':''} ${staff?'':'disabled'} aria-label="Done">
         ${ed ? `<button class="itext" data-act="edit-text" data-id="${id}" data-item="${it.id}">` : `<div class="itext">`}
           <span class="tx">${esc(it.text)}</span>
@@ -918,13 +919,13 @@ window.addEventListener('resize', () => { const n = colsFor(window.innerWidth); 
 function renderBoard(){
   const F = state.jobFilter;
   const all = Object.values(state.jobs).filter(j => !F || F.keys.includes(j.contactKey));
-  const open = all.filter(isOpen).sort(byDue);
+  const open = all.filter(j => state.staff ? WORK_STATUSES.includes(j.status) : isOpen(j)).sort(byDue);
   // Staff: "To invoice" = finished (ready or collected) but not yet invoiced, oldest first
   const toInvoice = all.filter(j => TO_INVOICE.includes(j.status)).sort((a,b) => (a.collectedAt||a.updatedAt||0) - (b.collectedAt||b.updatedAt||0));
   const closed = all.filter(j => !isOpen(j) && (!state.staff || j.status === 'invoiced')).sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
   if(state.tab === 'toinvoice' && !state.staff) state.tab = 'open';
   const js = state.jobStatus || 'all';
-  const JOB_FILTERS = [['all','All'],['newreq','🔔 New requests'],['in_progress','In progress'],['waiting_parts','Waiting for parts'],['booked','Booked in'],['ready','Ready for collection']];
+  const JOB_FILTERS = [['all','All'],['newreq','🔔 New requests'],['in_progress','In progress'],['waiting_parts','Waiting for parts'],['booked','Booked in']];
   const jobChips = state.staff && state.tab === 'open' && open.length ? `<div class="chips">${JOB_FILTERS.map(([k,l]) => {
       const n = k === 'all' ? open.length : k === 'newreq' ? open.filter(j => newReqs(j).length).length : open.filter(j => j.status === k).length;
       if(!n && k !== 'all' && k !== js) return '';
