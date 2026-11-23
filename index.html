@@ -131,6 +131,17 @@
     .cl-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name acts" "email email" "cell jobs";gap:4px 10px}
     .cl-name{grid-area:name} .cl-acts{grid-area:acts} .cl-email{grid-area:email;font-size:13px} .cl-cell{grid-area:cell;font-size:13px} .cl-jobs{grid-area:jobs;font-size:13px;text-align:right}
   }
+  .hist summary{color:var(--muted)}
+  .lg{padding:4px 12px 10px}
+  .lg-day{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:14px 0 6px}
+  .lg-row{display:flex;gap:12px;padding:8px 0;border-top:1px solid var(--line)}
+  .lg-time{font-variant-numeric:tabular-nums;color:var(--muted);font-size:13px;min-width:42px;padding-top:1px}
+  .lg-body{flex:1;min-width:0} .lg-head{font-size:14px;display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+  .lg-kind{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;border-radius:4px;padding:1px 5px}
+  .lg-kind.staff{background:var(--brand);color:#fff} .lg-kind.customer{background:#f5c542;color:#2a1d00}
+  .lg-job{color:var(--muted);font-size:13px}
+  .lg-body ul{margin:3px 0 0;padding-left:18px;font-size:13px;color:#c8d0d8} .lg-body li{margin:1px 0}
+  .lgbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px 16px 12px}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -333,7 +344,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.9.5";
+const APP_VERSION = "2.0.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -564,9 +575,16 @@ async function firebaseBackend(){
       return () => uns.forEach(u => u());
     },
     addJob: j => F.addDoc(jobs, j).then(r => r.id),
-    updateJob: (id, p) => F.updateDoc(F.doc(jobs, id), p),
+    // {__del:true} marks a field to remove (so the activity log can read the change before it is sent)
+    updateJob: (id, p) => F.updateDoc(F.doc(jobs, id), Object.fromEntries(Object.entries(p).map(([k,v]) => [k, v && v.__del ? F.deleteField() : v]))),
     removeJob: id => F.deleteDoc(F.doc(jobs, id)),
-    del: () => F.deleteField(),
+    del: () => ({__del:true}),
+    // Activity log: append-only, staff can read
+    addLog: e => F.addDoc(F.collection(db,'log'), e),
+    subscribeLog: (cb, onErr) => F.onSnapshot(F.query(F.collection(db,'log'), F.orderBy('at','desc'), F.limit(400)),
+      snap => { const a = []; snap.forEach(d => a.push({...d.data(), id:d.id})); cb(a); }, err => { console.warn(err); onErr && onErr(err); }),
+    subscribeJobLog: (jobId, cb) => F.onSnapshot(F.query(F.collection(db,'log'), F.where('jobId','==',jobId)),
+      snap => { const a = []; snap.forEach(d => a.push({...d.data(), id:d.id})); cb(a.sort((x,y) => y.at - x.at)); }, err => console.warn(err)),
     getProfile: async id => { const s = await F.getDoc(F.doc(db,'users',id)); return s.exists() ? s.data() : null; },
     setProfile: (id, d) => F.setDoc(F.doc(db,'users',id), d, {merge:true}),
     subscribeUsers: (cb, onErr) => listen(F.collection(db,'users'), o => cb(o), (ok, err) => err && onErr && onErr(err)),
@@ -629,6 +647,9 @@ function demoBackend(){
     },
     async removeJob(id){ const d = read(); delete d.jobs[id]; write(d); },
     del: () => DEL,
+    async addLog(e){ const d = read(); (d.log ||= []).push({...e, id:uid()}); write(d); },
+    subscribeLog(cb){ return sub(() => cb([...(read().log||[])].sort((a,b) => b.at - a.at).slice(0,400))); },
+    subscribeJobLog(jobId, cb){ return sub(() => cb((read().log||[]).filter(e => e.jobId === jobId).sort((a,b) => b.at - a.at))); },
     async getProfile(id){ return read().users[id] || null; },
     async setProfile(id, p){ const d = read(); d.users[id] = {...d.users[id], ...p}; write(d); },
     subscribeUsers(cb){ return sub(() => cb(read().users)); },
@@ -715,7 +736,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', partsOpen:new Set(), expanded:new Set(), view:(() => { try { return {jobs:'grid', customers:'grid', ...JSON.parse(localStorage.getItem('jobboard.view'))}; } catch { return {jobs:'grid', customers:'grid'}; } })(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
+  tab:'open', partsOpen:new Set(), histOpen:new Set(), jobLogs:{}, log:null, logErr:null, logKind:'all', expanded:new Set(), view:(() => { try { return {jobs:'grid', customers:'grid', ...JSON.parse(localStorage.getItem('jobboard.view'))}; } catch { return {jobs:'grid', customers:'grid'}; } })(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'password', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -886,6 +907,7 @@ function jobCard(job){
       <button class="btn small" data-act="add-item" data-id="${id}">Add</button>
     </div>` : ''}
     ${partsPanel(job, s)}
+    ${historyPanel(job)}
     <div class="jfoot">
       ${staff
         ? (phoneForJob(job) ? `<a class="btn small wa" href="${esc(waLink(phoneForJob(job), waMessageFor(job)))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</a>` : '')
@@ -971,6 +993,123 @@ function exportJobs(){
   setTimeout(() => URL.revokeObjectURL(url), 5000);
   toast(`Exported ${jobs.length} job${jobs.length===1?'':'s'}`);
 }
+
+/* ---------- Activity log: who changed what, when ---------- */
+const FIELD_NAMES = {bike:'Bike', due:'Wanted by', notes:'Notes', customer:'Name', email:'Email', cell:'Cell'};
+function describeChange(job, patch){
+  const out = [], q = t => `“${t || '?'}”`, lab = st => STATUSES[st]?.label || st || '—';
+  const doneKeys = new Set(Object.keys(patch).filter(k => /^items\.[^.]+\.done$/.test(k)).map(k => k.split('.')[1]));
+  for(const [k, v] of Object.entries(patch)){
+    if(['updatedAt','collectedAt','invoicedAt','contactKey'].includes(k)) continue;
+    const del = v && v.__del; let m;
+    if(k === 'status'){ if(v !== job.status) out.push(`Status: ${lab(job.status)} → ${lab(v)}`); }
+    else if((m = k.match(/^items\.([^.]+)$/))){
+      const old = job.items?.[m[1]];
+      out.push(del ? `Removed task ${q(old?.text)}` : `Added task ${q(v.text)}${v.cost ? ` (${money(v.cost)})` : ''}`);
+    }
+    else if((m = k.match(/^items\.([^.]+)\.(\w+)$/))){
+      const it = job.items?.[m[1]] || {}, f = m[2];
+      if(f === 'done') out.push(v ? `Ticked done: ${q(it.text)}` : `Unticked: ${q(it.text)}`);
+      else if(f === 'cost' && (+it.cost||0) !== (+v||0)) out.push(`Cost ${q(it.text)}: ${it.cost ? money(it.cost) : '—'} → ${v ? money(v) : '—'}`);
+      else if(f === 'text' && it.text !== v) out.push(`Task renamed: ${q(it.text)} → ${q(v)}`);
+      else if(f === 'seen' && v === true && it.seen !== true && !doneKeys.has(m[1]) && byCustomer(it)) out.push(`Acknowledged request ${q(it.text)}`);
+    }
+    else if((m = k.match(/^parts\.([^.]+)$/))){
+      const old = job.parts?.[m[1]];
+      out.push(del ? `Removed part ${q(old?.name)}` : `Added part ${q(v.name)}${v.partNo ? ` [${v.partNo}]` : ''} · ${+v.qty||1} × ${v.price ? money(v.price) : 'no price'}`);
+    }
+    else if((m = k.match(/^parts\.([^.]+)\.(\w+)$/))){
+      const pt = job.parts?.[m[1]] || {}, f = m[2];
+      if(f === 'qty') out.push(`Part ${q(pt.name)} qty: ${+pt.qty||1} → ${v}`);
+      else if(f === 'price') out.push(`Part ${q(pt.name)} price: ${pt.price ? money(pt.price) : '—'} → ${v ? money(v) : '—'}`);
+      else if(f === 'name') out.push(`Part renamed: ${q(pt.name)} → ${q(v)}`);
+    }
+    else if(FIELD_NAMES[k]){
+      const a = String(job[k] ?? ''), b = String(v ?? '');
+      if(a !== b) out.push(`${FIELD_NAMES[k]}: ${k === 'notes' ? (b ? 'updated' : 'cleared') : `${(k==='due' ? fmtDate(a) : k==='cell' ? showContact(a) : a) || '—'} → ${(k==='due' ? fmtDate(b) : k==='cell' ? showContact(b) : b) || '—'}`}`);
+    }
+  }
+  return out;
+}
+function writeLog(jobId, job, details){
+  if(!details.length || !B()?.addLog || !state.user) return;
+  const who = state.staff ? (myName() || 'Staff') : (job?.customer || loadMe().name || 'Customer');
+  B().addLog({at:Date.now(), jobId, customer:job?.customer || '', bike:job?.bike || '', who, kind:state.staff ? 'staff' : 'customer',
+    uid:state.user.uid, summary:details[0], details}).catch(e => console.warn('Log not saved', e));
+}
+// Every add/change/delete goes through here, so nothing is missed
+function withLog(b){
+  const add = b.addJob, upd = b.updateJob, rem = b.removeJob;
+  b.addJob = async job => {
+    const id = await add(job), n = Object.keys(job.items||{}).length;
+    writeLog(id, job, [`Booked in${job.bike ? ` ${job.bike}` : ''}${n ? ` with ${n} task${n===1?'':'s'}` : ''}`,
+      ...Object.values(job.items||{}).map(i => `Task “${i.text}”${i.cost ? ` (${money(i.cost)})` : ''}`)]);
+    return id;
+  };
+  b.updateJob = async (id, patch) => {
+    const before = state.jobs[id] ? JSON.parse(JSON.stringify(state.jobs[id])) : {};
+    await upd(id, patch);
+    writeLog(id, before, describeChange(before, patch));
+  };
+  b.removeJob = async id => {
+    const before = state.jobs[id] || {};
+    await rem(id);
+    writeLog(id, before, [`Deleted job${before.bike ? ` (${before.bike})` : ''}`]);
+  };
+  return b;
+}
+// One log entry as a row
+function logRow(e, showJob){
+  const t = new Date(e.at).toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:'Africa/Johannesburg'});
+  return `<div class="lg-row">
+    <div class="lg-time">${t}</div>
+    <div class="lg-body">
+      <div class="lg-head"><b>${esc(e.who)}</b> <span class="lg-kind ${e.kind}">${e.kind === 'staff' ? 'staff' : 'customer'}</span>
+        ${showJob ? `<span class="lg-job">${esc(e.customer)}${e.bike ? ` · ${esc(e.bike)}` : ''}</span>` : ''}</div>
+      <ul>${(e.details||[e.summary]).map(d => `<li>${esc(d)}</li>`).join('')}</ul>
+    </div></div>`;
+}
+function logGroups(entries, showJob){
+  const tz = 'Africa/Johannesburg', today = new Date().toLocaleDateString('en-CA',{timeZone:tz});
+  const yest = new Date(Date.now() - 864e5).toLocaleDateString('en-CA',{timeZone:tz});
+  let html = '', last = '';
+  for(const e of entries){
+    const d = new Date(e.at).toLocaleDateString('en-CA',{timeZone:tz});
+    if(d !== last){ last = d;
+      html += `<div class="lg-day">${d === today ? 'Today' : d === yest ? 'Yesterday' : new Date(e.at).toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',timeZone:tz})}</div>`; }
+    html += logRow(e, showJob);
+  }
+  return html;
+}
+let unsubLog = null;
+function showActivity(){
+  state.page = 'activity';
+  unsubLog ||= B().subscribeLog(a => { state.logErr = null; state.log = a; render(); }, err => { state.logErr = friendlyError(err); render(); });
+  render();
+}
+function renderActivity(){
+  const q = (state.drafts.lsearch || '').trim().toLowerCase(), k = state.logKind || 'all';
+  let list = state.log || [];
+  if(k !== 'all') list = list.filter(e => e.kind === k);
+  if(q) list = list.filter(e => [e.who, e.customer, e.bike, ...(e.details||[])].join(' ').toLowerCase().includes(q));
+  const chip = (v, l) => `<button class="chip ${k===v?'on':''}" data-act="log-kind" data-f="${v}">${l}</button>`;
+  return `<input class="csearch" data-draft="lsearch" type="search" placeholder="Search activity: name, bike, task, part…" value="${esc(state.drafts.lsearch||'')}">
+    <div class="chips">${chip('all','All')}${chip('staff','Staff')}${chip('customer','Customers')}</div>
+    ${state.logErr ? `<div class="banner">Couldn’t load the activity log: ${esc(state.logErr)}</div>` : ''}
+    ${list.length ? `<div class="lg lgbox">${logGroups(list, true)}</div>` : `<div class="empty">${state.log ? 'No activity yet.' : 'Loading…'}</div>`}
+    <p class="hint" style="text-align:center">Showing the latest ${Math.min(400, (state.log||[]).length)} changes. Each job card also has its full history.</p>`;
+}
+// Per-job history (bottom of each job card, staff)
+function historyPanel(job){
+  if(!state.staff) return '';
+  const id = job.id, open = state.histOpen.has(id), entries = state.jobLogs[id];
+  return `<details class="parts hist" data-id="${id}" ${open?'open':''}>
+    <summary>🕘 History <span class="psum">${entries ? `${entries.length} change${entries.length===1?'':'s'}` : ''}</span></summary>
+    ${open ? (entries ? (entries.length ? `<div class="lg">${logGroups(entries, false)}</div>` : '<p class="hint" style="padding:0 12px 10px">No changes recorded yet. Changes are logged from v2.0.0 onwards.</p>') : '<p class="hint" style="padding:0 12px 10px">Loading…</p>') : ''}
+  </details>`;
+}
+const jobLogSubs = {};
+function watchJobLog(id){ jobLogSubs[id] ||= B().subscribeJobLog(id, a => { state.jobLogs[id] = a; render(); }); }
 
 /* ---------- Grid / List switch (staff) ---------- */
 function viewToggle(page){
@@ -1165,6 +1304,7 @@ function renderBoard(){
   const pageTabs = state.staff ? `<div class="tabs pagetabs">
         <button data-act="page" data-page="jobs" class="${state.page==='jobs'?'on':''}">Jobs</button>
         <button data-act="page" data-page="customers" class="${state.page==='customers'?'on':''}">Customers</button>
+        <button data-act="page" data-page="activity" class="${state.page==='activity'?'on':''}">Activity</button>
       </div>` : '';
   return `<div class="wrap">
     <div class="top">${LOGO}${conn}
@@ -1185,7 +1325,7 @@ function renderBoard(){
       <button class="btn primary" data-act="new-job">+ Book my bike in</button></div>` : ''}
     ${weatherStrip()}
     ${state.err?`<div class="banner">Problem reaching the database: ${esc(state.err)}</div>`:''}
-    ${state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}<span class="spacer"></span>${viewToggle('customers')}</div>${renderCustomers()}` : custEmpty ? '' : `
+    ${state.staff && state.page==='activity' ? `<div class="bar2">${pageTabs}</div>${renderActivity()}` : state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}<span class="spacer"></span>${viewToggle('customers')}</div>${renderCustomers()}` : custEmpty ? '' : `
     ${F?`<div class="filterbar">Showing jobs for <b>${esc(F.name||'this customer')}</b><span class="spacer"></span><button class="btn small ghost" data-act="clear-filter">Show all</button></div>`:''}
     <div class="bar2">
       ${pageTabs}
@@ -1400,7 +1540,8 @@ app.addEventListener('click', async e => {
     case 'export': exportJobs(); break;
     case 'qr': openQrDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
-    case 'page': if(b.dataset.page === 'customers') showCustomers(); else { state.page = 'jobs'; render(); } break;
+    case 'page': if(b.dataset.page === 'customers') showCustomers(); else if(b.dataset.page === 'activity') showActivity(); else { state.page = 'jobs'; render(); } break;
+    case 'log-kind': state.logKind = b.dataset.f; render(); break;
     case 'job-status': state.jobStatus = b.dataset.f; render(); break;
     case 'cust-filter': state.custFilter = b.dataset.f; render(); break;
     case 'clear-filter': state.jobFilter = null; render(); break;
@@ -1450,9 +1591,12 @@ app.addEventListener('change', e => {
 });
 app.addEventListener('toggle', e => {
   const d = e.target; if(!d.matches?.('details.parts')) return;
-  d.open ? state.partsOpen.add(d.dataset.id) : state.partsOpen.delete(d.dataset.id);
+  const set = d.classList.contains('hist') ? state.histOpen : state.partsOpen;
+  if(d.open === set.has(d.dataset.id)) return;
+  d.open ? set.add(d.dataset.id) : set.delete(d.dataset.id);
+  if(d.classList.contains('hist')){ if(d.open) watchJobLog(d.dataset.id); render(); }
 }, true);
-app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k){ state.drafts[k] = e.target.value; if(k === 'csearch') render(); } });
+app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k){ state.drafts[k] = e.target.value; if(k === 'csearch' || k === 'lsearch') render(); } });
 app.addEventListener('keydown', e => {
   const k = e.target.dataset?.draft;
   if(e.key === 'Enter' && k && /^[tc]:/.test(k)){ e.preventDefault(); addItem(k.slice(2)); }
@@ -1575,6 +1719,8 @@ async function onUser(user){
   unsubJobs && unsubJobs(); unsubJobs = null;
   unsubScreens && unsubScreens(); unsubScreens = null;
   unsubUsers && unsubUsers(); unsubUsers = null;
+  unsubLog && unsubLog(); unsubLog = null; state.log = null;
+  Object.keys(jobLogSubs).forEach(k => { jobLogSubs[k](); delete jobLogSubs[k]; }); state.jobLogs = {}; state.histOpen = new Set();
   state.users = {}; state.usersLoaded = false; state.page = 'jobs'; state.jobFilter = null; state.custFilter = 'all';
   if(dlg.open) dlg.close();
   state.user = user; state.jobs = {}; state.err = null;
@@ -1600,7 +1746,7 @@ async function onUser(user){
   if(VIEW === 'tv') document.body.classList.add('tv');
   render();
   loadWeather(); setInterval(loadWeather, 30*60*1000);
-  try{ state.backend = LIVE ? await firebaseBackend() : demoBackend(); }
+  try{ state.backend = LIVE ? await firebaseBackend() : demoBackend(); if(VIEW !== 'tv') withLog(state.backend); }
   catch(err){ state.err = 'Could not load (' + err.message + ')'; state.phase = 'login'; render(); return; }
 
   if(VIEW === 'tv'){
