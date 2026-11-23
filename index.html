@@ -331,7 +331,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.9.0";
+const APP_VERSION = "1.9.1";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -462,6 +462,10 @@ function friendlyError(err){
   if(c.includes('invalid-phone')) return 'That cell number doesn’t look right.';
   if(c.includes('invalid-verification-code')) return 'That code is wrong — check the SMS and try again.';
   if(c.includes('too-many-requests')) return 'Too many attempts. Please wait a few minutes.';
+  if(c.includes('invalid-credential') || c.includes('wrong-password') || c.includes('user-not-found') || c.includes('invalid-login'))
+    return 'Wrong email or password. First time here? Tap “First time, or forgot your password?”.';
+  if(c.includes('quota-exceeded') && state.login?.method === 'email')
+    return 'Today’s sign-in email limit is used up. Use “Sign in with a password instead”.';
   if(c.includes('quota-exceeded')) return 'Sign-in is busy right now. Please try again later, or ask Erik to book your bike in for you.';
   if(c.includes('invalid-action-code') || c.includes('expired-action-code')) return 'That sign-in link has expired or was already used. Request a new one.';
   if(c.includes('permission-denied')) return 'You don’t have access to do that.';
@@ -510,6 +514,10 @@ async function firebaseBackend(){
   return {
     mode:'live',
     onAuth: cb => A.onAuthStateChanged(auth, u => cb(toUser(u))),
+    // Staff password sign-in: sends no email, so the daily email-link limit doesn't apply
+    signInPassword: (email, pw) => A.signInWithEmailAndPassword(auth, email, pw),
+    // "Set / forgot password" email (separate, much larger daily allowance)
+    sendPasswordReset: email => A.sendPasswordResetEmail(auth, email, {url: baseUrl()}),
     async sendEmailLink(email){
       await A.sendSignInLinkToEmail(auth, email, {url: baseUrl(), handleCodeInApp:true});
       localStorage.setItem('jobboard.emailForSignIn', email);
@@ -584,6 +592,8 @@ function demoBackend(){
     mode:'demo',
     onAuth(cb){ authSubs.add(cb); setTimeout(() => cb(session())); },
     async sendEmailLink(email){ signIn(email); },
+    async signInPassword(email){ signIn(email); },
+    async sendPasswordReset(){},
     async completeEmailLink(){},
     async startPhone(phone){ return async () => signIn(phone); },
     async signOut(){ setSession(null); },
@@ -704,7 +714,7 @@ const state = {
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
   tab:'open', partsOpen:new Set(), expanded:new Set(), view:(() => { try { return {jobs:'grid', customers:'grid', ...JSON.parse(localStorage.getItem('jobboard.view'))}; } catch { return {jobs:'grid', customers:'grid'}; } })(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
-  login:{method:'email', step:'enter', value:'', busy:false, confirm:null},
+  login:{method:'password', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
 const B = () => state.backend;
@@ -717,7 +727,18 @@ let unsubLegacy = null;
 function renderLogin(){
   const L = state.login, demo = B()?.mode === 'demo';
   let body;
-  if(L.step === 'sent'){
+  if(L.step === 'reset-sent'){
+    body = `<div class="msg">We’ve emailed a link to set your password to<br><b>${esc(L.value)}</b><br><br>
+      Open it, choose a password, then come back here and sign in. Check your spam folder if it isn’t there in a minute.</div>
+      <p style="text-align:center"><button class="linkbtn" data-act="login-reset">Back to sign-in</button></p>`;
+  } else if(L.method === 'password' && L.step === 'enter'){
+    body = `<input class="in" id="ident" type="email" autocomplete="username" placeholder="you@example.com" value="${esc(L.value)}">
+      <input class="in" id="pw" type="password" autocomplete="current-password" placeholder="Password">
+      <button class="btn primary block" data-act="login-pw" ${L.busy?'disabled':''}>${L.busy?'Signing in…':'Sign in'}</button>
+      <p style="text-align:center;margin-top:14px;line-height:2">
+        <button class="linkbtn" data-act="login-forgot">First time, or forgot your password?</button><br>
+        <button class="linkbtn" data-act="login-method" data-m="email">Email me a sign-in link instead</button></p>`;
+  } else if(L.step === 'sent'){
     body = `<div class="msg">We’ve emailed a sign-in link to<br><b>${esc(L.value)}</b><br><br>
       Open it on this phone to sign in. Check your spam folder if it isn’t there in a minute.</div>
       <p style="text-align:center"><button class="linkbtn" data-act="login-reset">Use a different email</button></p>`;
@@ -727,7 +748,7 @@ function renderLogin(){
       <button class="btn primary block" data-act="login-code" ${L.busy?'disabled':''}>${L.busy?'Checking…':'Sign in'}</button>
       <p style="text-align:center"><button class="linkbtn" data-act="login-reset">Use a different number</button></p>`;
   } else {
-    if(!SMS_LOGIN && B()?.mode === 'live') L.method = 'email';
+    if(!SMS_LOGIN && B()?.mode === 'live' && L.method === 'phone') L.method = 'email';
     const email = L.method === 'email';
     body = `${(!SMS_LOGIN && B()?.mode === 'live') ? '' : `<div class="tabs">
         <button data-act="login-method" data-m="email" class="${email?'on':''}">Email</button>
@@ -737,7 +758,8 @@ function renderLogin(){
         placeholder="${email?'you@example.com':'082 123 4567'}" value="${esc(L.value)}">
       <button class="btn primary block" data-act="login-send" ${L.busy?'disabled':''}>
         ${L.busy?'Sending…':email?'Email me a sign-in link':'SMS me a code'}</button>
-      <p class="hint" style="text-align:center;margin-top:12px">No password needed. ${email?'We’ll email you a link to tap.':'We’ll SMS you a one-time code.'}</p>`;
+      <p class="hint" style="text-align:center;margin-top:12px">No password needed. ${email?'We’ll email you a link to tap.':'We’ll SMS you a one-time code.'}</p>
+      <p style="text-align:center"><button class="linkbtn" data-act="login-method" data-m="password">Sign in with a password instead</button></p>`;
   }
   return `<div class="land">
     ${LOGO}
@@ -771,6 +793,23 @@ async function loginSend(){
   }catch(e){ console.error(e); toast(friendlyError(e)); }
   L.busy = false; render();
   if(state.login.step === 'code') document.getElementById('code')?.focus();
+}
+async function loginPassword(){
+  const L = state.login, email = normContact(document.getElementById('ident').value), pw = document.getElementById('pw').value;
+  L.value = email;
+  if(!isEmail(email)) return toast('Please enter your email address');
+  if(!pw) return toast('Please enter your password');
+  L.busy = true; render();
+  try{ await B().signInPassword(email, pw); }
+  catch(e){ console.error(e); toast(friendlyError(e)); L.busy = false; render(); }
+}
+async function loginForgot(){
+  const L = state.login, email = normContact(document.getElementById('ident')?.value || L.value);
+  if(!isEmail(email)) return toast('Type your email address first, then tap this again');
+  L.busy = true; render();
+  try{ await B().sendPasswordReset(email); L.value = email; L.step = 'reset-sent'; }
+  catch(e){ console.error(e); toast(friendlyError(e)); }
+  L.busy = false; render();
 }
 async function loginCode(){
   const L = state.login, code = document.getElementById('code').value.trim();
@@ -1304,6 +1343,8 @@ app.addEventListener('click', async e => {
   switch(a){
     case 'login-method': state.login.method = b.dataset.m; state.login.value = ''; render(); break;
     case 'login-send': loginSend(); break;
+    case 'login-pw': loginPassword(); break;
+    case 'login-forgot': loginForgot(); break;
     case 'login-code': loginCode(); break;
     case 'login-reset': state.login = {method:state.login.method, step:'enter', value:'', busy:false}; render(); break;
     case 'save-profile': {
@@ -1380,7 +1421,7 @@ app.addEventListener('keydown', e => {
   const k = e.target.dataset?.draft;
   if(e.key === 'Enter' && k && /^[tc]:/.test(k)){ e.preventDefault(); addItem(k.slice(2)); }
   if(e.key === 'Enter' && k && /^p[npqr]:/.test(k)){ e.preventDefault(); addPart(k.slice(3)); }
-  if(e.key === 'Enter' && e.target.id === 'ident'){ e.preventDefault(); loginSend(); }
+  if(e.key === 'Enter' && (e.target.id === 'ident' || e.target.id === 'pw')){ e.preventDefault(); state.login.method === 'password' ? loginPassword() : loginSend(); }
   if(e.key === 'Enter' && e.target.id === 'code'){ e.preventDefault(); loginCode(); }
   if(e.key === 'Enter' && e.target.id === 'pname'){ e.preventDefault(); app.querySelector('[data-act=save-profile]')?.click(); }
 });
