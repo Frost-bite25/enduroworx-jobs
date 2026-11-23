@@ -109,6 +109,12 @@
   .tag.grey{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
   .cmeta{font-size:13px;color:var(--muted);margin-top:3px}
   .clinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .qrtile{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px;font-size:12px;line-height:1.2;text-align:left;color:var(--muted)}
+  .qrtile img{width:38px;height:38px;background:#fff;padding:2px;border-radius:5px;image-rendering:pixelated}
+  @media (max-width: 759px){ .qrtile{padding:4px} .qrtile span{display:none} .qrtile img{width:32px;height:32px}
+    .top{flex-wrap:nowrap;gap:8px} .top .logo{font-size:21px} .top .btn.small{padding:6px 9px;white-space:nowrap} .conn{white-space:nowrap} }
+  .qrdlg{text-align:center}
+  .qrbig{display:block;width:min(70vw,380px);height:auto;margin:6px auto 14px;background:#fff;padding:10px;border-radius:14px;image-rendering:pixelated}
   .chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 12px}
   .chip{background:var(--panel);border:1px solid var(--line);border-radius:20px;padding:6px 11px;font-size:13px;color:var(--muted)}
   .chip span{color:var(--text);font-weight:700;margin-left:2px}
@@ -145,6 +151,8 @@
   @media (min-width: 760px){
     .wrap{max-width:1400px;padding:max(22px, env(safe-area-inset-top)) 28px 80px}
     .top .logo{font-size:32px}
+    .qrtile img{width:56px;height:56px}
+    .qrtile{font-size:13px}
     .who{font-size:14px}
     .btn{padding:10px 16px;font-size:15px} .btn.small{padding:8px 13px;font-size:14px}
     .tabs button{padding:10px 18px;font-size:15px}
@@ -228,7 +236,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.5.0";
+const APP_VERSION = "1.5.1";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -777,7 +785,13 @@ function renderBoard(){
   const all = Object.values(state.jobs).filter(j => !F || F.keys.includes(j.contactKey));
   const open = all.filter(j => j.status !== 'collected').sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
   const closed = all.filter(j => j.status === 'collected').sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
-  const list = state.tab === 'open' ? open : closed;
+  const js = state.jobStatus || 'all';
+  const JOB_FILTERS = [['all','All'],['in_progress','In progress'],['waiting_parts','Waiting for parts'],['booked','Booked in'],['ready','Ready for collection']];
+  const jobChips = state.tab === 'open' && open.length ? `<div class="chips">${JOB_FILTERS.map(([k,l]) => {
+      const n = k === 'all' ? open.length : open.filter(j => j.status === k).length;
+      if(!n && k !== 'all' && k !== js) return '';
+      return `<button class="chip ${js===k?'on':''}" data-act="job-status" data-f="${k}">${l} <span>${n}</span></button>`; }).join('')}</div>` : '';
+  const list = state.tab === 'open' ? (js === 'all' ? open : open.filter(j => j.status === js)) : closed;
   const demo = B().mode === 'demo';
   const conn = demo ? `<span class="conn"><span class="dot demo"></span>Demo</span>`
     : `<span class="conn"><span class="dot ${state.online?'':'off'}"></span>${state.online?'Live':'Offline'}</span>`;
@@ -785,6 +799,7 @@ function renderBoard(){
   return `<div class="wrap">
     <div class="top">${LOGO}${conn}
       ${state.staff?`<button class="btn small" data-act="screens">TV screens</button>`:''}
+      ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
     </div>
     <div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
       ${state.staff?'<span class="tag">STAFF</span>':''}
@@ -807,9 +822,10 @@ function renderBoard(){
       <span class="spacer"></span>
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
     </div>
+    ${jobChips}
     ${!state.loaded ? `<div class="empty">Loading…</div>`
       : list.length ? `<div class="joblist">${list.map(jobCard).join('')}</div>`
-      : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.'
+      : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.' : js !== 'all' ? 'No jobs with that status.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}`}
     ${VERSION_TAG}
@@ -892,6 +908,20 @@ function renderScreensDialog(){
       <button class="btn primary" data-sact="add">+ New screen link</button>
     </div>`;
 }
+function openQrDialog(){
+  dlg.dataset.kind = 'qr';
+  dlg.innerHTML = `<div class="dbody qrdlg">
+    <h2>Scan to book your bike in</h2>
+    <p class="hint" style="margin-top:0">Customers scan this to sign up, book a bike in or follow its progress.</p>
+    <img class="qrbig" src="${makeQr()}" alt="QR code for ${esc(baseUrl())}">
+    <input class="url" readonly value="${esc(baseUrl())}" style="width:100%">
+    <div class="dfoot">
+      ${navigator.share?`<button class="btn" data-sact="qr-share">Share link</button>`:''}
+      <button class="btn" data-sact="qr-copy">Copy link</button>
+      <button class="btn primary" data-sact="close">Done</button>
+    </div></div>`;
+  dlg.showModal();
+}
 function openScreensDialog(){
   dlg.dataset.kind = 'screens';
   dlg.innerHTML = `<div class="dbody"></div>`;
@@ -907,6 +937,8 @@ dlg.addEventListener('click', async e => {
   try{
     switch(b.dataset.sact){
       case 'close': dlg.close(); break;
+      case 'qr-copy': copyText(baseUrl(), dlg.querySelector('input.url')); break;
+      case 'qr-share': navigator.share({title:SHOP_NAME, text:'Book your bike in or follow its progress', url:baseUrl()}).catch(()=>{}); break;
       case 'add': {
         const name = prompt('Name this screen', 'Workshop TV'); if(name == null) return;
         const token = randomToken(24);
@@ -969,8 +1001,10 @@ app.addEventListener('click', async e => {
     case 'rename': state.phase = 'profile'; render(); break;
     case 'signout': if(confirm('Sign out?')) B().signOut(); break;
     case 'screens': openScreensDialog(); break;
+    case 'qr': openQrDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
     case 'page': if(b.dataset.page === 'customers') showCustomers(); else { state.page = 'jobs'; render(); } break;
+    case 'job-status': state.jobStatus = b.dataset.f; render(); break;
     case 'cust-filter': state.custFilter = b.dataset.f; render(); break;
     case 'clear-filter': state.jobFilter = null; render(); break;
     case 'cust-jobs': state.jobFilter = {keys:b.dataset.keys.split('|'), name:b.dataset.name}; state.page = 'jobs'; state.tab = 'open'; render(); window.scrollTo(0,0); break;
@@ -1023,8 +1057,9 @@ function tvCard(job){
   </div>`;
 }
 let qrImg = '';
+function makeQr(){ if(!qrImg && window.qrcode){ const q = qrcode(0,'M'); q.addData(baseUrl()); q.make(); qrImg = q.createDataURL(8,1); } return qrImg; }
 function renderTV(){
-  if(!qrImg && window.qrcode){ const q = qrcode(0,'M'); q.addData(baseUrl()); q.make(); qrImg = q.createDataURL(8,1); }
+  makeQr();
   const open = Object.values(state.jobs).filter(j => OPEN_STATUSES.includes(j.status))
     .sort((a,b) => ((TV_ORDER[a.status]??9)-(TV_ORDER[b.status]??9)) || ((a.createdAt||0)-(b.createdAt||0)));
   const main = state.err ? `<div class="tv-empty">${esc(state.err)}</div>`
