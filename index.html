@@ -124,6 +124,9 @@
   .chip.on{background:var(--brand);border-color:var(--brand);color:#fff} .chip.on span{color:#fff}
   .spill.mini{margin-left:0;font-size:11px;padding:2px 7px}
   .filterbar{display:flex;align-items:center;gap:8px;background:#11183a;border:1px solid #2a3a8a;border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:12px}
+  .welcome{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;text-align:center}
+  .welcome h2{margin:0 0 6px;font-size:20px} .welcome p{color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5}
+  .staffin{text-align:center;margin-top:30px}
   .land{max-width:420px;margin:10vh auto;padding:20px}
   .land .logo{font-size:40px;display:flex;align-items:center;margin:0 auto 14px;width:max-content}
   .land h1{text-align:center;margin-bottom:6px}
@@ -256,7 +259,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.5.4";
+const APP_VERSION = "1.6.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -380,6 +383,18 @@ const VIEW = params.get('view') === 'tv' ? 'tv' : 'app';
 const SCREEN_TOKEN = params.get('screen') || '';
 const LIVE = !!FIREBASE_CONFIG;
 const baseUrl = () => location.origin + location.pathname;
+const jobUrl = id => `${baseUrl()}?job=${encodeURIComponent(id)}`;
+const OPEN_JOB = params.get('job') || '';
+// Jobs this phone has booked or opened (their private links), and the customer's details for next time
+const myJobIds = () => { try { return JSON.parse(localStorage.getItem('jobboard.myjobs')) || []; } catch { return []; } };
+const rememberJob = id => { const ids = myJobIds(); if(id && !ids.includes(id)){ ids.push(id); localStorage.setItem('jobboard.myjobs', JSON.stringify(ids)); } };
+const forgetJob = id => localStorage.setItem('jobboard.myjobs', JSON.stringify(myJobIds().filter(x => x !== id)));
+const loadMe = () => { try { return JSON.parse(localStorage.getItem('jobboard.me')) || {}; } catch { return {}; } };
+const saveMe = me => localStorage.setItem('jobboard.me', JSON.stringify(me));
+// Every way a job identifies its customer (email is the main reference; cell for walk-ins)
+const jobEmail = j => normContact(j.email || ((j.contactKey||'').includes('@') ? j.contactKey : ''));
+const jobCell  = j => normContact(j.cell || (isPhone(j.contactKey||'') ? j.contactKey : ''));
+const jobKeys  = j => [...new Set([j.contactKey, jobEmail(j), jobCell(j)].filter(Boolean))];
 const screenUrl = token => `${baseUrl()}?view=tv&screen=${encodeURIComponent(token)}`;
 
 /* =====================================================================
@@ -420,6 +435,18 @@ async function firebaseBackend(){
       catch(e){ verifier.clear(); verifier = null; document.getElementById('recaptcha').innerHTML=''; throw e; }
     },
     signOut: () => A.signOut(auth),
+    // Customers don't sign in: they get a silent anonymous session (no email, no quota)
+    async signInAnon(){ await auth.authStateReady(); if(!auth.currentUser) await A.signInAnonymously(auth); },
+    // A customer's own jobs, opened by their private job links
+    subscribeDocs(ids, cb, onState, onMissing){
+      const parts = {};
+      const uns = ids.map(id => F.onSnapshot(F.doc(jobs, id), {includeMetadataChanges:true}, snap => {
+        if(snap.exists()) parts[id] = {...snap.data(), id}; else { delete parts[id]; onMissing && onMissing(id); }
+        onState && onState(!snap.metadata.fromCache); cb({...parts});
+      }, err => { console.warn('Job', id, err); delete parts[id]; if(err.code === 'permission-denied' || err.code === 'not-found') onMissing && onMissing(id); cb({...parts}); }));
+      if(!ids.length) setTimeout(() => cb({}));
+      return () => uns.forEach(u => u());
+    },
     async screenSignIn(token){
       await auth.authStateReady();
       if(!auth.currentUser) await A.signInAnonymously(auth);
@@ -467,6 +494,14 @@ function demoBackend(){
     async completeEmailLink(){},
     async startPhone(phone){ return async () => signIn(phone); },
     async signOut(){ setSession(null); },
+    async signInAnon(){ if(!session()) setSession({uid:'anon_' + uid(), anon:true, email:'', phone:''}); },
+    subscribeDocs(ids, cb, onState, onMissing){
+      return sub(() => {
+        const all = read().jobs, out = {};
+        for(const id of ids){ if(all[id]) out[id] = all[id]; else onMissing && onMissing(id); }
+        onState && onState(true); cb(out);
+      });
+    },
     async screenSignIn(){},
     subscribeJobs(spec, cb, onState){
       return sub(() => {
@@ -581,6 +616,7 @@ const state = {
 let unsubJobs = null, unsubScreens = null;
 const B = () => state.backend;
 const myName = () => state.profile?.name || '';
+let unsubLegacy = null;
 
 /* =====================================================================
    SIGN-IN + PROFILE SCREENS
@@ -612,9 +648,10 @@ function renderLogin(){
   }
   return `<div class="land">
     ${LOGO}
-    <p class="lead">Sign in to book your bike in and follow its progress.</p>
-    ${demo?`<div class="banner">Demo mode: no real email or SMS is sent. You're signed in straight away, and any code works. Sign in as <b>${esc(STAFF[0])}</b> to see Erik's view.</div>`:''}
+    <p class="lead">Workshop staff sign-in</p>
+    ${demo?`<div class="banner">Demo mode: no real email or SMS is sent. You're signed in straight away. Use <b>${esc(STAFF[0])}</b> to see Erik's view.</div>`:''}
     ${body}
+    <p style="text-align:center;margin-top:18px"><button class="linkbtn" data-act="back-to-board">← Back to bookings</button></p>
     ${VERSION_TAG}
   </div>`;
 }
@@ -622,10 +659,8 @@ function renderLogin(){
 function renderProfile(){
   return `<div class="land">
     <h1>Welcome</h1>
-    <p class="lead">What name should we put on your job card?</p>
+    <p class="lead">What name should show on items you add?</p>
     <input class="in" id="pname" placeholder="Your name" autocomplete="name" value="${esc(state.profile?.name||'')}">
-    ${state.user?.phone ? '' : `<input class="in" id="pcell" type="tel" placeholder="Cell number (optional)" autocomplete="tel" value="${esc(state.profile?.cell||'')}">
-    <p class="hint" style="text-align:center;margin:-4px 0 12px">So the workshop can call or WhatsApp you about your bike.</p>`}
     <button class="btn primary block" data-act="save-profile">Continue</button>
     ${VERSION_TAG}
   </div>`;
@@ -654,11 +689,11 @@ async function loginCode(){
 /* =====================================================================
    BOARD (phone / laptop)
    ===================================================================== */
-const canEditItem = (it) => state.staff || (it.byUid === state.user.uid && !it.done);
+const canEditItem = (it) => state.staff || (it.byUid === state.user?.uid && !it.done);
 
 function jobCard(job){
   const s = stats(job), id = job.id, staff = state.staff;
-  const sub = [job.bike, staff && showContact(job.contactKey)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
+  const sub = [job.bike, staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
       <div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
@@ -699,6 +734,8 @@ function jobCard(job){
         ? (phoneForJob(job) ? `<a class="btn small wa" href="${esc(waLink(phoneForJob(job), waMessageFor(job)))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</a>` : '')
         : (WORKSHOP_WHATSAPP ? `<a class="btn small wa" href="${esc(waToWorkshop(job))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp Erik</a>` : '')}
       <button class="btn small ghost" data-act="edit-job" data-id="${id}">Edit</button>
+      <button class="btn small ghost" data-act="copy-job-link" data-id="${id}" title="Copy this job's private link">Link</button>
+      ${!staff && job.status==='collected' ? `<button class="btn small ghost" data-act="forget" data-id="${id}">Remove from this phone</button>` : ''}
       ${staff ? (job.status==='collected'
         ? `<button class="btn small ghost" data-act="reopen" data-id="${id}">Reopen</button>
            <button class="btn small ghost danger" data-act="del-job" data-id="${id}">Delete</button>`
@@ -709,23 +746,29 @@ function jobCard(job){
 
 /* ---------- Customers (staff) ---------- */
 const digits = s => String(s||'').replace(/\D/g,'');
+// Customers are built from the jobs themselves (email is the reference), plus anyone who registered under the old sign-in
 function customerList(){
-  const users = Object.entries(state.users||{}).map(([uid,u]) => ({uid, ...u,
-    contactPhone: u.phone || u.cell || '',
-    keys: [u.email, u.phone, u.cell].map(normContact).filter(Boolean)}));
-  const known = new Set(users.flatMap(u => u.keys));
-  // People Erik booked in who haven't signed in yet
-  const unreg = {};
-  for(const j of Object.values(state.jobs)){
-    if(!j.contactKey || known.has(j.contactKey)) continue;
-    const isMail = j.contactKey.includes('@');
-    const u = unreg[j.contactKey] ||= {uid:'', name:j.customer, email:isMail?j.contactKey:'', contactPhone:isMail?'':j.contactKey,
-      keys:[j.contactKey], unregistered:true, last:0};
-    if((j.createdAt||0) >= u.last){ u.last = j.createdAt||0; u.name = j.customer || u.name; }
+  const list = [], byKey = new Map();
+  const attach = (c, ks) => ks.forEach(k => { c.keys.add(k); byKey.set(k, c); });
+  const jobs = Object.values(state.jobs).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  for(const j of jobs){
+    const ks = jobKeys(j); if(!ks.length) continue;
+    let c = ks.map(k => byKey.get(k)).find(Boolean);
+    if(!c){ c = {name:'', email:'', contactPhone:'', keys:new Set(), since:j.createdAt||0, last:-1}; list.push(c); }
+    attach(c, ks);
+    if((j.createdAt||0) >= c.last){ c.last = j.createdAt||0; c.name = j.customer || c.name; }
+    c.email ||= jobEmail(j); c.contactPhone ||= jobCell(j);
   }
-  return [...users, ...Object.values(unreg)];
+  for(const u of Object.values(state.users||{})){
+    const ks = [u.email, u.phone, u.cell].map(normContact).filter(Boolean); if(!ks.length) continue;
+    let c = ks.map(k => byKey.get(k)).find(Boolean);
+    if(!c){ c = {name:u.name||'', email:'', contactPhone:'', keys:new Set(), since:u.createdAt||0, last:-1}; list.push(c); }
+    attach(c, ks);
+    c.name ||= u.name || ''; c.email ||= normContact(u.email||''); c.contactPhone ||= normContact(u.phone || u.cell || '');
+  }
+  return list.map(c => ({...c, keys:[...c.keys]})).filter(c => !c.keys.some(k => STAFF_KEYS.includes(k)));
 }
-const jobsFor = keys => Object.values(state.jobs).filter(j => j.contactKey && keys.includes(j.contactKey));
+const jobsFor = keys => Object.values(state.jobs).filter(j => jobKeys(j).some(k => keys.includes(k)));
 
 function renderCustomers(){
   const q = (state.drafts.csearch || '').trim().toLowerCase(), qd = digits(q);
@@ -735,10 +778,10 @@ function renderCustomers(){
   // Status filter chips: based on the customer's open jobs
   const statusOf = c => {
     const js = jobsFor(c.keys), open = js.filter(j => j.status !== 'collected');
-    return new Set([...open.map(j => j.status), open.length ? 'in_shop' : 'no_bike', ...(c.unregistered ? ['unreg'] : [])]);
+    return new Set([...open.map(j => j.status), open.length ? 'in_shop' : 'no_bike']);
   };
   const FILTERS = [['all','All'],['in_shop','Bike in workshop'],['ready','Ready for collection'],['waiting_parts','Waiting for parts'],
-    ['in_progress','In progress'],['booked','Booked in'],['no_bike','No bike in'],['unreg','Not signed in yet']];
+    ['in_progress','In progress'],['booked','Booked in'],['no_bike','No bike in']];
   const tagged = list.filter(c => !c.keys.some(k => STAFF_KEYS.includes(k))).map(c => ({c, st:statusOf(c)}));
   const count = f => f === 'all' ? tagged.length : tagged.filter(x => x.st.has(f)).length;
   const cf = state.custFilter || 'all';
@@ -746,35 +789,34 @@ function renderCustomers(){
   const chips = `<div class="chips">${FILTERS.map(([k,l]) => {
     const n = count(k); if(!n && k !== 'all' && k !== cf) return '';
     return `<button class="chip ${cf===k?'on':''} f-${k}" data-act="cust-filter" data-f="${k}">${l} <span>${n}</span></button>`; }).join('')}</div>`;
-  const rank = c => c.keys.some(k => STAFF_KEYS.includes(k)) ? 2 : c.unregistered ? 1 : 0;
+  const rank = c => c.keys.some(k => STAFF_KEYS.includes(k)) ? 1 : 0;
   list.sort((a,b) => (rank(a) - rank(b)) || (a.name||'').localeCompare(b.name||''));
-  const regCount = Object.values(state.users||{}).filter(u => ![u.email,u.phone].map(normContact).some(k => STAFF_KEYS.includes(k))).length;
+  const regCount = tagged.length;
   const rows = list.map(c => {
     const js = jobsFor(c.keys), openJobs = js.filter(j => j.status !== 'collected'), open = openJobs.length;
     const pills = [...new Set(openJobs.map(j => j.status))].map(st => `<span class="spill mini s-${st}">${esc(STATUSES[st]?.label||st)}</span>`).join('');
     const isStaffRow = c.keys.some(k => STAFF_KEYS.includes(k));
     const ph = c.contactPhone, wa = digits(ph);
     const filterKey = esc(c.keys.join('|'));
-    return `<div class="cust ${c.unregistered?'unreg':''}">
+    return `<div class="cust">
       <div class="chead"><b>${esc(c.name || 'No name yet')}</b>
-        ${isStaffRow?'<span class="tag">STAFF</span>':''}
-        ${c.unregistered?'<span class="tag grey">Not signed in yet</span>':''}${pills}</div>
+        ${isStaffRow?'<span class="tag">STAFF</span>':''}${pills}</div>
       <div class="cmeta">${[c.email, ph && ('0' + digits(ph).slice(2)).replace(/^(\d{3})(\d{3})(\d+)$/,'$1 $2 $3')].filter(Boolean).map(esc).join(' · ')}</div>
-      <div class="cmeta">${c.createdAt ? `Joined ${esc(new Date(c.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}))} · ` : ''}${
+      <div class="cmeta">${c.since ? `Customer since ${esc(new Date(c.since).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}))} · ` : ''}${
         js.length ? `<b style="color:var(--text)">${open}</b> open · ${js.length} job${js.length===1?'':'s'} in total` : 'No jobs yet'}</div>
       <div class="clinks">
         ${ph?`<a class="btn small" href="tel:${esc(ph)}">Call</a><a class="btn small wa" href="${esc(waLink(ph, `Hi ${firstName(c.name)}, `))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp</a>`:''}
         ${c.email?`<a class="btn small" href="mailto:${esc(c.email)}">Email</a>`:''}
         ${js.length?`<button class="btn small" data-act="cust-jobs" data-keys="${filterKey}" data-name="${esc(c.name||'')}">View jobs</button>`:''}
-        <button class="btn small" data-act="cust-book" data-key="${esc(c.keys[0]||'')}" data-name="${esc(c.name||'')}">+ Book in</button>
+        <button class="btn small" data-act="cust-book" data-email="${esc(c.email||'')}" data-cell="${esc(c.contactPhone||'')}" data-name="${esc(c.name||'')}">+ Book in</button>
       </div>
     </div>`;
   }).join('');
   return `<input class="csearch" data-draft="csearch" type="search" placeholder="Search name, email or cell…" value="${esc(state.drafts.csearch||'')}">
     ${chips}
     ${state.usersErr?`<div class="banner">Couldn’t load customers: ${esc(state.usersErr)}</div>`:''}
-    <div class="cmeta" style="margin:0 0 10px">${regCount} registered customer${regCount===1?'':'s'}</div>
-    ${rows ? `<div class="custlist">${rows}</div>` : `<div class="empty">${q ? 'No customers match your search.' : cf !== 'all' ? 'No customers with that status.' : 'No customers have signed up yet.'}</div>`}`;
+    <div class="cmeta" style="margin:0 0 10px">${regCount} customer${regCount===1?'':'s'}</div>
+    ${rows ? `<div class="custlist">${rows}</div>` : `<div class="empty">${q ? 'No customers match your search.' : cf !== 'all' ? 'No customers with that status.' : 'No customers yet. They appear here once they book a bike in.'}</div>`}`;
 }
 let unsubUsers = null;
 function showCustomers(){
@@ -789,20 +831,19 @@ const waLink = (phone, text) => `https://wa.me/${digits(phone)}${text ? '?text='
 const firstName = n => (n || '').trim().split(/\s+/)[0] || 'there';
 // Best cell number for a job's customer: the job's own contact, else the registered customer's cell
 function phoneForJob(job){
-  const k = job.contactKey || '';
-  if(isPhone(k)) return k;
-  if(!k) return '';
-  const u = Object.values(state.users || {}).find(u => normContact(u.email) === k);
-  return u ? (u.phone || u.cell || '') : '';
+  const c = jobCell(job); if(c) return c;
+  const e = jobEmail(job); if(!e) return '';
+  const u = Object.values(state.users || {}).find(u => normContact(u.email) === e);
+  return u ? normContact(u.phone || u.cell || '') : '';
 }
 function waMessageFor(job){
   const s = stats(job), hi = `Hi ${firstName(job.customer)}`, bike = job.bike ? `your ${job.bike}` : 'your bike';
   const done = s.items.filter(i => i.done).map(i => i.text), todo = s.items.filter(i => !i.done).map(i => i.text);
   const total = s.est ? `\nEstimated total: ${money(s.est)}` : '';
-  const sign = `\n– Enduroworx Plettenberg Bay`, track = `\nFollow progress: ${baseUrl()}`;
+  const sign = `\n– Enduroworx Plettenberg Bay`, track = `\nFollow your bike here: ${jobUrl(job.id)}`;
   switch(job.status){
     case 'ready':
-      return `${hi}, ${bike} is ready for collection 🏍️${done.length ? `\nWork done: ${done.join(', ')}.` : ''}${total}${sign}`;
+      return `${hi}, ${bike} is ready for collection 🏍️${done.length ? `\nWork done: ${done.join(', ')}.` : ''}${total}${track}${sign}`;
     case 'waiting_parts':
       return `${hi}, quick update on ${bike}: we're waiting for parts${todo.length ? ` for ${todo.join(', ')}` : ''}. We'll let you know as soon as they arrive.${track}${sign}`;
     case 'in_progress':
@@ -814,7 +855,7 @@ function waMessageFor(job){
   }
 }
 const waToWorkshop = job => waLink(WORKSHOP_WHATSAPP,
-  `Hi Erik, it's ${myName()} about my ${job.bike || 'bike'}${job.createdAt ? ` (booked in ${new Date(job.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short'})})` : ''}. `);
+  `Hi Erik, it's ${job.customer || myName()} about my ${job.bike || 'bike'}${job.createdAt ? ` (booked in ${new Date(job.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short'})})` : ''}. `);
 
 // How many card columns fit the screen
 const colsFor = w => w < 760 ? 1 : w < 1180 ? 2 : w < 1600 ? 3 : w < 2100 ? 4 : 5;
@@ -841,7 +882,7 @@ function renderBoard(){
   const closed = all.filter(j => j.status === 'collected').sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
   const js = state.jobStatus || 'all';
   const JOB_FILTERS = [['all','All'],['in_progress','In progress'],['waiting_parts','Waiting for parts'],['booked','Booked in'],['ready','Ready for collection']];
-  const jobChips = state.tab === 'open' && open.length ? `<div class="chips">${JOB_FILTERS.map(([k,l]) => {
+  const jobChips = state.staff && state.tab === 'open' && open.length ? `<div class="chips">${JOB_FILTERS.map(([k,l]) => {
       const n = k === 'all' ? open.length : open.filter(j => j.status === k).length;
       if(!n && k !== 'all' && k !== js) return '';
       return `<button class="chip ${js===k?'on':''}" data-act="job-status" data-f="${k}">${l} <span>${n}</span></button>`; }).join('')}</div>` : '';
@@ -850,6 +891,7 @@ function renderBoard(){
   const conn = demo ? `<span class="conn"><span class="dot demo"></span>Demo</span>`
     : `<span class="conn"><span class="dot ${state.online?'':'off'}"></span>${state.online?'Live':'Offline'}</span>`;
   const loginAs = state.user.email || state.user.phone;
+  const custEmpty = !state.staff && state.loaded && !Object.keys(state.jobs).length;
   const pageTabs = state.staff ? `<div class="tabs pagetabs">
         <button data-act="page" data-page="jobs" class="${state.page==='jobs'?'on':''}">Jobs</button>
         <button data-act="page" data-page="customers" class="${state.page==='customers'?'on':''}">Customers</button>
@@ -859,14 +901,19 @@ function renderBoard(){
       ${state.staff?`<button class="btn small" data-act="screens">TV screens</button>`:''}
       ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
     </div>
-    <div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
-      ${state.staff?'<span class="tag">STAFF</span>':''}
+    ${state.staff ? `<div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
+      <span class="tag">STAFF</span>
       <button class="linkbtn" data-act="rename">Change name</button>
-      <button class="linkbtn" data-act="signout">Sign out</button></div>
-    ${demo?`<div class="banner">Demo mode: everything is saved only in this browser. Sign out and back in as a customer or as <b>${esc(STAFF[0])}</b> to compare the two views.</div>`:''}
+      <button class="linkbtn" data-act="signout">Sign out</button></div>`
+    : state.user && !state.user.anon ? `<div class="who">Signed in as ${esc(loginAs)} <button class="linkbtn" data-act="signout">Sign out</button></div>` : ''}
+    ${demo?`<div class="banner">Demo mode: everything is saved only in this browser.${state.staff?' Sign out to see what customers see.':` Use <b>Staff sign-in</b> at the bottom with ${esc(STAFF[0])} to see Erik's view.`}</div>`:''}
+    ${!state.staff && state.loaded && !Object.keys(state.jobs).length ? `<div class="welcome">
+      <h2>Book your bike in</h2>
+      <p>No account or password needed. Tell us about your bike and what needs doing, and follow its progress right here.</p>
+      <button class="btn primary" data-act="new-job">+ Book my bike in</button></div>` : ''}
     ${weatherStrip()}
     ${state.err?`<div class="banner">Problem reaching the database: ${esc(state.err)}</div>`:''}
-    ${state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}</div>${renderCustomers()}` : `
+    ${state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}</div>${renderCustomers()}` : custEmpty ? '' : `
     ${F?`<div class="filterbar">Showing jobs for <b>${esc(F.name||'this customer')}</b><span class="spacer"></span><button class="btn small ghost" data-act="clear-filter">Show all</button></div>`:''}
     <div class="bar2">
       ${pageTabs}
@@ -882,20 +929,23 @@ function renderBoard(){
       : list.length ? masonry(list)
       : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.' : js !== 'all' ? 'No jobs with that status.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
-          : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}`}
+          : 'Your bikes will show here once booked in.'}</div>`}`}
+    ${!state.staff ? `<p class="staffin"><button class="linkbtn" data-act="staff-login">Workshop staff sign-in</button></p>` : ''}
     ${VERSION_TAG}
   </div>`;
 }
 
 /* ---------- job dialog ---------- */
 function openJobDialog(job, preset){
-  const isNew = !job, staff = state.staff; job = job || preset || {};
+  const isNew = !job, staff = state.staff;
+  job = job || preset || (staff ? {} : {customer:loadMe().name||'', email:loadMe().email||'', cell:loadMe().cell||''});
   dlg.innerHTML = `<form method="dialog">
     <h2>${isNew?'Book a bike in':'Edit job'}</h2>
-    ${staff ? `
-      <label class="f">Customer name *</label><input class="in" name="customer" required value="${esc(job.customer||'')}">
-      <label class="f">Customer cell or email</label><input class="in" name="contact" value="${esc(job.contactKey||'')}" placeholder="082 123 4567 or name@email.com">
-      <div class="hint">If they sign in with this number or email, they’ll see this job on their phone.</div>`
+    ${staff || isNew ? `
+      <label class="f">${staff?'Customer name':'Your name'} *</label><input class="in" name="customer" required autocomplete="name" value="${esc(job.customer||'')}">
+      <label class="f">${staff?'Customer email':'Your email'}${staff?'':' *'}</label><input class="in" name="email" type="email" autocomplete="email" ${staff?'':'required'} value="${esc(jobEmail(job)||job.email||'')}" placeholder="name@email.com">
+      <label class="f">${staff?'Customer cell':'Your cell number'}</label><input class="in" name="cell" type="tel" autocomplete="tel" value="${esc(showContact(jobCell(job)||normContact(job.cell||'')))}" placeholder="082 123 4567">
+      <div class="hint">${staff ? 'The email is the customer’s reference. Add a cell number to WhatsApp them.' : 'So Erik can WhatsApp you about your bike.'}</div>`
     : ''}
     <label class="f">Bike</label><input class="in" name="bike" placeholder="e.g. KTM 300 EXC TPI 2024" value="${esc(job.bike||'')}">
     <label class="f">Wanted by (optional)</label><input class="in" name="due" type="date" value="${esc(job.due||'')}">
@@ -914,20 +964,24 @@ function openJobDialog(job, preset){
     e.preventDefault();
     const f = Object.fromEntries(new FormData(form));
     const data = {bike:f.bike.trim(), due:f.due||'', notes:f.notes.trim(), updatedAt:Date.now()};
-    if(staff){
-      data.customer = f.customer.trim();
-      data.contactKey = normContact(f.contact);
-      if(data.contactKey && !isEmail(data.contactKey) && !isPhone(data.contactKey)) return toast('Check the customer’s cell number or email');
+    if(staff || isNew){
+      const email = normContact(f.email), cell = normContact(f.cell);
+      if(email && !isEmail(email)) return toast('Please check the email address');
+      if(cell && !isPhone(cell)) return toast('Please check the cell number');
+      if(!staff && !email) return toast('Please add your email address');
+      data.customer = f.customer.trim(); data.email = email; data.cell = cell;
+      if(staff || isNew) data.contactKey = email || cell;
+      if(!staff) saveMe({name:data.customer, email, cell});
     }
     try{
       if(isNew){
         const items = {}, now = Date.now();
         (f.items||'').split('\n').map(l => l.trim()).filter(Boolean).forEach((l,i) => {
           const p = staff ? parseLine(l) : {text:l, cost:0};
-          items[uid()] = {text:p.text, cost:p.cost, done:false, by:myName(), byUid:state.user.uid, t:now+i};
+          items[uid()] = {text:p.text, cost:p.cost, done:false, by:staff ? myName() : data.customer, byUid:state.user.uid, t:now+i};
         });
-        const base = staff ? data : {...data, customer:myName(), contactKey:state.keys[0]};
-        await B().addJob({...base, status:'booked', createdAt:now, createdBy:state.user.uid, items});
+        const newId = await B().addJob({...data, status:'booked', createdAt:now, createdBy:state.user.uid, items});
+        if(!staff){ rememberJob(newId); dlg.close(); toast('Booked in! This phone will remember your bike.'); startBoard(); return; }
       } else {
         await B().updateJob(job.id, data);
       }
@@ -1029,7 +1083,8 @@ function addItem(id){
   let t = text, cost = 0;
   if(state.staff){ cost = parseCost(state.drafts['c:'+id]); if(!cost){ const p = parseLine(text); t = p.text; cost = p.cost; } }
   delete state.drafts['t:'+id]; delete state.drafts['c:'+id];
-  act(() => B().updateJob(id, {[`items.${uid()}`]:{text:t, cost, done:false, by:myName(), byUid:state.user.uid, t:Date.now()}, ...touch()}));
+  const by = state.staff ? myName() : (state.jobs[id]?.customer || loadMe().name || '');
+  act(() => B().updateJob(id, {[`items.${uid()}`]:{text:t, cost, done:false, by, byUid:state.user.uid, t:Date.now()}, ...touch()}));
 }
 
 app.addEventListener('click', async e => {
@@ -1063,7 +1118,11 @@ app.addEventListener('click', async e => {
     case 'cust-filter': state.custFilter = b.dataset.f; render(); break;
     case 'clear-filter': state.jobFilter = null; render(); break;
     case 'cust-jobs': state.jobFilter = {keys:b.dataset.keys.split('|'), name:b.dataset.name}; state.page = 'jobs'; state.tab = 'open'; render(); window.scrollTo(0,0); break;
-    case 'cust-book': openJobDialog(null, {customer:b.dataset.name, contactKey:b.dataset.key}); break;
+    case 'cust-book': openJobDialog(null, {customer:b.dataset.name, email:b.dataset.email, cell:b.dataset.cell}); break;
+    case 'copy-job-link': copyText(jobUrl(id)); break;
+    case 'forget': if(confirm('Remove this bike from this phone? The workshop keeps its record.')){ forgetJob(id); startBoard(); } break;
+    case 'staff-login': state.phase = 'login'; render(); window.scrollTo(0,0); break;
+    case 'back-to-board': state.phase = 'board'; render(); break;
     case 'new-job': openJobDialog(); break;
     case 'edit-job': openJobDialog(job); break;
     case 'add-item': addItem(id); break;
@@ -1183,14 +1242,24 @@ function startBoard(){
   if(state.staff) unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; render(); },
     err => { state.usersErr = friendlyError(err); render(); });
   state.phase = 'board'; state.loaded = false; state.jobs = {}; render();
-  unsubJobs && unsubJobs();
+  unsubJobs && unsubJobs(); unsubJobs = null;
+  unsubLegacy && unsubLegacy(); unsubLegacy = null;
   const loadTimer = setTimeout(() => { if(!state.loaded){ state.loaded = true; state.err ||= 'still connecting…'; render(); } }, 10000);
-  unsubJobs = B().subscribeJobs(state.staff ? {all:true} : {keys:state.keys}, jobs => {
-    clearTimeout(loadTimer); state.err = null; state.jobs = jobs; state.loaded = true; render();
-  }, (online, err) => {
+  const onState = (online, err) => {
     state.online = online;
     if(err){ state.err = friendlyError(err); state.loaded = true; render(); }
-  });
+  };
+  if(state.staff){
+    unsubJobs = B().subscribeJobs({all:true}, jobs => {
+      clearTimeout(loadTimer); state.err = null; state.jobs = jobs; state.loaded = true; render();
+    }, onState);
+    return;
+  }
+  // Customers: the jobs this phone knows (private links), plus any under an old sign-in
+  let mine = {}, legacy = {};
+  const push = () => { clearTimeout(loadTimer); state.err = null; state.jobs = {...legacy, ...mine}; state.loaded = true; render(); };
+  unsubJobs = B().subscribeDocs(myJobIds(), o => { mine = o; push(); }, onState, id => forgetJob(id));
+  if(state.keys.length) unsubLegacy = B().subscribeJobs({keys:state.keys}, o => { legacy = o; push(); }, onState);
 }
 
 async function onUser(user){
@@ -1200,13 +1269,20 @@ async function onUser(user){
   state.users = {}; state.page = 'jobs'; state.jobFilter = null; state.custFilter = 'all';
   if(dlg.open) dlg.close();
   state.user = user; state.jobs = {}; state.err = null;
-  if(!user || user.anon){
-    state.phase = 'login'; state.login = {method:state.login.method, step:'enter', value:'', busy:false}; render(); return;
+  state.login = {method:state.login.method, step:'enter', value:'', busy:false};
+  if(!user){
+    // No account needed: start a silent anonymous session for customers
+    try{ await B().signInAnon(); }catch(e){ console.error(e); state.err = friendlyError(e); state.phase = 'board'; state.loaded = true; render(); }
+    return;
   }
-  state.keys = [user.email, user.phone].filter(Boolean);
+  state.keys = user.anon ? [] : [user.email, user.phone].filter(Boolean);
   state.staff = state.keys.some(k => STAFF_KEYS.includes(k));
-  try{ state.profile = await B().getProfile(user.uid); }catch(e){ console.error(e); state.profile = null; }
-  if(!state.profile?.name){ state.phase = 'profile'; render(); return; }
+  if(state.staff){
+    try{ state.profile = await B().getProfile(user.uid); }catch(e){ console.error(e); state.profile = null; }
+    if(!state.profile?.name){ state.phase = 'profile'; render(); return; }
+  } else {
+    state.profile = {name: loadMe().name || ''};
+  }
   startBoard();
 }
 
@@ -1232,6 +1308,8 @@ async function onUser(user){
     return;
   }
 
+  // A private job link (?job=…) adds that bike to this phone's list
+  if(OPEN_JOB){ rememberJob(OPEN_JOB); history.replaceState(null, '', baseUrl()); }
   try{ await B().completeEmailLink(); }catch(err){ console.error(err); toast(friendlyError(err)); }
   B().onAuth(onUser);
 })();

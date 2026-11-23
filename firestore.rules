@@ -20,13 +20,18 @@ service cloud.firestore {
     }
 
     match /jobs/{id} {
-      // Staff see everything, screens see the board, customers see only their own jobs
-      allow read:   if isStaff() || isScreen() || mine(resource.data);
-      // Customers can book in for themselves only
-      allow create: if isStaff() || (mine(request.resource.data) && request.resource.data.status == 'booked');
-      // Customers can add/edit items on their own jobs but can't change the status or move the job
-      allow update: if isStaff() || (mine(resource.data) && mine(request.resource.data)
-                                     && request.resource.data.status == resource.data.status);
+      // Opening ONE job needs its private link (the random job id). Customers get a silent anonymous session.
+      allow get:    if signedIn();
+      // Listing/browsing jobs: staff and TV screens only (plus customers from the old sign-in, for their own jobs)
+      allow list:   if isStaff() || isScreen() || mine(resource.data);
+      // Anyone can book a bike in (no account needed); it always starts as "Booked in"
+      allow create: if isStaff() || (signedIn() && request.resource.data.status == 'booked'
+                                     && request.resource.data.keys().size() < 30);
+      // Customers holding the link can add/edit their requests, but not change the status, name or email
+      allow update: if isStaff() || (signedIn()
+                                     && request.resource.data.status == resource.data.status
+                                     && request.resource.data.get('customer', '') == resource.data.get('customer', '')
+                                     && request.resource.data.get('contactKey', '') == resource.data.get('contactKey', ''));
       allow delete: if isStaff();
     }
 
