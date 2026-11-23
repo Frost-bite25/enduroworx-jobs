@@ -208,7 +208,7 @@
   .tag.grey{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
   .cmeta{font-size:13px;color:var(--muted);margin-top:3px}
   .clinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-  .hbtns{display:flex;flex-direction:column;gap:6px} .hbtns .btn{justify-content:center;width:100%}
+  .hbtns{display:flex;flex-direction:column;gap:6px} .hbtns .btn{justify-content:center;width:100%} .hbtns .conn{justify-content:center}
   .qrtile{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px;font-size:12px;line-height:1.2;text-align:left;color:var(--muted)}
   .qrtile img{width:38px;height:38px;background:#fff;padding:2px;border-radius:5px;image-rendering:pixelated}
   @media (max-width: 759px){ .qrtile{padding:4px} .qrtile span{display:none} .qrtile img{width:32px;height:32px}
@@ -361,7 +361,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.4.1";
+const APP_VERSION = "2.4.2";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -1406,10 +1406,9 @@ function renderBoard(){
         <button data-act="page" data-page="activity" class="${state.page==='activity'?'on':''}">Activity</button>
       </div>` : '';
   return `<div class="wrap">
-    <div class="top">${LOGO}${conn}
+    <div class="top">${LOGO}${state.staff?'':conn}
       ${!state.staff?`<button class="btn small ghost" data-act="staff-login">Staff sign-in</button>`:''}
-      ${state.staff?`<div class="hbtns"><button class="btn small" data-act="export" title="Spreadsheet or full backup">⬇ Export</button>
-        <button class="btn small" data-act="screens">TV screens</button></div>`:''}
+      ${state.staff?`<div class="hbtns"><button class="btn small" data-act="export" title="Spreadsheet or full backup">⬇ Export</button>${conn}</div>`:''}
       ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
     </div>
     ${state.staff ? `<div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
