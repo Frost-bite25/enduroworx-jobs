@@ -147,6 +147,9 @@
   .mk.plain{background:var(--panel2);color:var(--muted);padding:2px 5px}
   .mk.sm{font-size:10px;padding:1px 5px 1px 4px;margin:0 2px 0 0} .mk.sm .bk{width:16px;height:10px}
   .mk.tv{font-size:.8vw;padding:.1vw .45vw .1vw .35vw;border-radius:.3vw;margin:0 .3vw 0 0;gap:.3vw} .mk.tv .bk{width:1.3vw;height:.85vw}
+  .bikerow{display:flex;gap:8px} .bikerow > div{flex:1;min-width:0} .bikerow .yr{flex:0 0 96px}
+  select.in{width:100%;appearance:none;-webkit-appearance:none;background-color:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 38px 10px 10px;font-size:16px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239a98a0' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -349,7 +352,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.1.0";
+const APP_VERSION = "2.2.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -1017,6 +1020,33 @@ const MAKES = [
   [/stark/i,                    'STARK',     '#111',    '#fff'],
   [/sur-?ron/i,                 'SUR-RON',   '#222',    '#fff'],
 ];
+// Common models per make, offered as suggestions (any model can still be typed)
+const MODELS = {
+  'KTM':       ['50 SX','65 SX','85 SX','125 SX','150 SX','250 SX','250 SX-F','350 SX-F','450 SX-F','125 XC-W','150 EXC','250 EXC','300 EXC','250 XC-W','300 XC-W','350 EXC-F','450 EXC-F','500 EXC-F','690 Enduro R','Freeride E-XC'],
+  'Husqvarna': ['TC 65','TC 85','TC 125','TC 250','FC 250','FC 350','FC 450','TE 150','TE 250','TE 300','TX 300','FE 250','FE 350','FE 450','FE 501','701 Enduro'],
+  'Beta':      ['RR 125 2T','RR 200 2T','RR 250 2T','RR 300 2T','RR 350 4T','RR 390 4T','RR 430 4T','RR 480 4T','Xtrainer 250','Xtrainer 300','RX 300','RX 450'],
+  'GasGas':    ['MC 65','MC 85','MC 125','MC 250F','MC 350F','MC 450F','EC 250','EC 300','EC 250F','EC 350F','EX 300'],
+  'Sherco':    ['SE 125','SE 250','SE 300','SEF 250','SEF 300','SEF 450','SEF 500'],
+  'Yamaha':    ['PW50','TT-R125','TT-R230','YZ65','YZ85','YZ125','YZ250','YZ250F','YZ450F','YZ125X','YZ250X','YZ250FX','YZ450FX','WR250F','WR450F'],
+  'Honda':     ['CRF50F','CRF110F','CRF125F','CRF250F','CRF250R','CRF450R','CRF250RX','CRF450RX','CRF450X','CRF300L'],
+  'Kawasaki':  ['KX65','KX85','KX112','KX250','KX450','KX250X','KX450X','KLX230','KLX300R'],
+  'Suzuki':    ['RM-Z250','RM-Z450','RMX450Z','DR-Z400'],
+  'TM':        ['EN 125','EN 250','EN 300','EN 250 Fi','EN 450 Fi','MX 125','MX 250'],
+  'Rieju':     ['MR 250','MR 300','MR Ranger'],
+  'Fantic':    ['XE 125','XE 300','XEF 250','XEF 450'],
+  'Triumph':   ['TF 250-X'],
+  'Stark':     ['VARG MX','VARG EX'],
+  'Sur-Ron':   ['Light Bee X','Storm Bee'],
+};
+const MAKE_NAMES = Object.keys(MODELS);
+// Split an old free-text bike ("Husky TE 300 2023") into make / model / year for the edit form
+function splitBike(bike){
+  let rest = String(bike || '').trim(), make = '', year = '';
+  const m = MAKES.find(([re]) => re.test(rest));
+  if(m){ make = MAKE_NAMES.find(n => n.toUpperCase() === m[1]) || ''; rest = rest.replace(m[0], '').trim(); }
+  const y = rest.match(/\b(19[89]\d|20[0-4]\d)\b/); if(y){ year = y[1]; rest = rest.replace(y[0], '').trim(); }
+  return {make, model: rest.replace(/\s{2,}/g,' '), year};
+}
 const BIKE_ICON = `<svg class="bk" viewBox="0 0 32 20" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
   <circle cx="6" cy="14" r="4.5"/><circle cx="26" cy="14" r="4.5"/>
   <path d="M6 14l6-7h6l3 3h3l2 4M12 7l4 7h4M18 7l-1-3h-3M21 10l3-5h3"/></g></svg>`;
@@ -1394,7 +1424,22 @@ function openJobDialog(job, preset){
       <label class="f">${staff?'Customer cell':'Your cell number'}</label><input class="in" name="cell" type="tel" autocomplete="tel" value="${esc(showContact(jobCell(job)||normContact(job.cell||'')))}" placeholder="082 123 4567">
       <div class="hint">${staff ? 'The email is the customer’s reference. Add a cell number to WhatsApp them.' : 'So Erik can WhatsApp you about your bike.'}</div>`
     : ''}
-    <label class="f">Bike</label><input class="in" name="bike" placeholder="e.g. KTM 300 EXC TPI 2024" value="${esc(job.bike||'')}">
+    ${(() => {
+      const sp = job.make !== undefined ? {make:job.make||'', model:job.model||'', year:job.year||''} : splitBike(job.bike);
+      const known = MAKE_NAMES.includes(sp.make), other = !!(job.bike && !known && !sp.make);
+      return `<label class="f">Bike make</label>
+      <select class="in" name="make" data-bike="make">
+        <option value="">Choose make…</option>
+        ${MAKE_NAMES.map(n => `<option ${sp.make===n?'selected':''}>${n}</option>`).join('')}
+        <option value="__other" ${other?'selected':''}>Other…</option>
+      </select>
+      <input class="in" name="makeOther" placeholder="Make (e.g. Montesa)" style="margin-top:6px;${other?'':'display:none'}" value="${esc(other ? job.bike : '')}">
+      <div class="bikerow">
+        <div><label class="f">Model</label><input class="in" name="model" list="modelList" autocomplete="off" placeholder="${esc(MODELS[sp.make]?.[4] ? 'e.g. ' + MODELS[sp.make][4] : 'e.g. 300 EXC')}" value="${esc(other ? '' : sp.model)}"></div>
+        <div class="yr"><label class="f">Year</label><input class="in" name="year" inputmode="numeric" maxlength="4" placeholder="2024" value="${esc(sp.year)}"></div>
+      </div>
+      <datalist id="modelList">${(MODELS[sp.make]||[]).map(m => `<option value="${esc(m)}">`).join('')}</datalist>`;
+    })()}
     <label class="f">Wanted by (optional)</label><input class="in" name="due" type="date" value="${esc(job.due||'')}">
     <label class="f">Notes</label><textarea class="in" name="notes" placeholder="${staff?'Notes about the bike or job':'Anything Erik should know'}">${esc(job.notes||'')}</textarea>
     ${isNew?`<label class="f">Work to be done</label>
@@ -1407,6 +1452,13 @@ function openJobDialog(job, preset){
     </div>
   </form>`;
   const form = dlg.querySelector('form');
+  form.make?.addEventListener('change', () => {
+    const mk = form.make.value, list = MODELS[mk] || [];
+    form.makeOther.style.display = mk === '__other' ? '' : 'none';
+    if(mk === '__other') form.makeOther.focus();
+    dlg.querySelector('#modelList').innerHTML = list.map(m => `<option value="${esc(m)}">`).join('');
+    form.model.placeholder = list[4] ? 'e.g. ' + list[4] : 'e.g. 300 EXC';
+  });
   form.onsubmit = async e => {
     if(e.submitter?.value === 'delete'){
       e.preventDefault();
@@ -1417,7 +1469,11 @@ function openJobDialog(job, preset){
     if(e.submitter?.value !== 'save') return;
     e.preventDefault();
     const f = Object.fromEntries(new FormData(form));
-    const data = {bike:f.bike.trim(), due:f.due||'', notes:f.notes.trim(), updatedAt:Date.now()};
+    const make = f.make === '__other' ? (f.makeOther||'').trim() : (f.make||'');
+    const model = (f.model||'').trim(), year = (f.year||'').trim();
+    if(year && !/^(19|20)\d\d$/.test(year)) return toast('Please check the year (e.g. 2024)');
+    const bike = [make, model, year].filter(Boolean).join(' ');
+    const data = {bike, make, model, year, due:f.due||'', notes:f.notes.trim(), updatedAt:Date.now()};
     if(staff || isNew){
       const email = normContact(f.email), cell = normContact(f.cell);
       if(email && !isEmail(email)) return toast('Please check the email address');
