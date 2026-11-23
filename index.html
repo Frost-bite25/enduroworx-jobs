@@ -82,6 +82,7 @@
   .addrow input{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:15px;min-width:0}
   .addrow input.t{flex:1} .addrow input.c{width:96px}
   .jfoot{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+  .nw{white-space:nowrap}
 
   dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:0;width:min(520px,94vw)}
   dialog::backdrop{background:rgba(0,0,0,.6)}
@@ -100,7 +101,8 @@
   .screenrow .sbtns{display:flex;gap:6px;flex-wrap:wrap}
   .screenrow .nm{flex:1} .screenrow .nm small{display:block;color:var(--muted);font-size:12px}
 
-  .pagetabs{margin-bottom:14px}
+  .pagetabs{margin-bottom:0;flex:1 1 100%}
+  .bar2 .chips{margin:0;flex:1 1 100%;order:5}
   .csearch{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px}
   .cust{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
   .cust.unreg{border-style:dashed}
@@ -149,14 +151,14 @@
 
   /* ---------- iPad / tablet & laptop ---------- */
   @media (min-width: 760px){
-    .wrap{max-width:1400px;padding:max(22px, env(safe-area-inset-top)) 28px 80px}
+    .wrap{max-width:none;padding:max(22px, env(safe-area-inset-top)) 28px 80px}
     .top .logo{font-size:32px}
     .qrtile img{width:56px;height:56px}
     .qrtile{font-size:13px}
     .who{font-size:14px}
     .btn{padding:10px 16px;font-size:15px} .btn.small{padding:8px 13px;font-size:14px}
     .tabs button{padding:10px 18px;font-size:15px}
-    .pagetabs{max-width:420px}
+    .pagetabs{flex:0 0 auto}
     /* forecast fills the width instead of scrolling */
     .wx{overflow:visible} .wday{flex:1 1 0;min-width:0;padding:10px 6px}
     .wd{font-size:13px} .wi{font-size:30px} .wt{font-size:16px} .wr{font-size:12px} .wv{font-size:12px;padding:3px 4px}
@@ -165,6 +167,7 @@
     .joblist .job,.custlist .cust{margin-bottom:0}
     .job{padding:16px 18px}
     .jhead h3{font-size:20px}
+    .jfoot .btn.small{padding:7px 11px}
     ul.items li{padding:10px 0}
     ul.items li input[type=checkbox]{width:26px;height:26px}
     .itext{font-size:16px}
@@ -174,9 +177,24 @@
     .land{margin-top:14vh}
   }
   @media (min-width: 1180px){
-    .joblist{grid-template-columns:repeat(3,minmax(0,1fr))}
     .custlist{grid-template-columns:repeat(3,minmax(0,1fr))}
+    /* compact forecast: one line per day plus the verdict */
+    .wday{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 8px;padding:7px 6px}
+    .wd{font-size:13px} .wi{font-size:24px;margin:0} .wt{font-size:15px} .wr{font-size:12px}
+    .wv{flex-basis:100%;margin-top:4px}
+    .wxh{margin-bottom:4px}
+    .who{margin-bottom:10px}
+    .bar2 .chips{flex:0 1 auto;order:0}
   }
+  @media (min-width: 1600px){
+    .wrap{padding-left:36px;padding-right:36px}
+    .custlist{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  @media (min-width: 2100px){ .custlist{grid-template-columns:repeat(5,minmax(0,1fr))} }
+  /* masonry columns: cards stack under each other without gaps */
+  .mason{display:flex;gap:16px;align-items:flex-start}
+  .mcol{flex:1 1 0;min-width:0;display:flex;flex-direction:column;gap:16px}
+  .mcol .job{margin-bottom:0}
 
   /* ---------- TV board ---------- */
   body.tv{overflow:hidden;cursor:none}
@@ -236,7 +254,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.5.1";
+const APP_VERSION = "1.5.2";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -623,7 +641,7 @@ const canEditItem = (it) => state.staff || (it.byUid === state.user.uid && !it.d
 
 function jobCard(job){
   const s = stats(job), id = job.id, staff = state.staff;
-  const sub = [job.bike, staff && showContact(job.contactKey)].filter(Boolean).map(esc).join(' · ');
+  const sub = [job.bike, staff && showContact(job.contactKey)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
       <div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
@@ -662,7 +680,7 @@ function jobCard(job){
       ${staff
         ? (phoneForJob(job) ? `<a class="btn small wa" href="${esc(waLink(phoneForJob(job), waMessageFor(job)))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</a>` : '')
         : (WORKSHOP_WHATSAPP ? `<a class="btn small wa" href="${esc(waToWorkshop(job))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp Erik</a>` : '')}
-      <button class="btn small ghost" data-act="edit-job" data-id="${id}">Edit details</button>
+      <button class="btn small ghost" data-act="edit-job" data-id="${id}">Edit</button>
       ${staff ? (job.status==='collected'
         ? `<button class="btn small ghost" data-act="reopen" data-id="${id}">Reopen</button>
            <button class="btn small ghost danger" data-act="del-job" data-id="${id}">Delete</button>`
@@ -780,6 +798,24 @@ function waMessageFor(job){
 const waToWorkshop = job => waLink(WORKSHOP_WHATSAPP,
   `Hi Erik, it's ${myName()} about my ${job.bike || 'bike'}${job.createdAt ? ` (booked in ${new Date(job.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short'})})` : ''}. `);
 
+// How many card columns fit the screen
+const colsFor = w => w < 760 ? 1 : w < 1180 ? 2 : w < 1600 ? 3 : w < 2100 ? 4 : 5;
+// Deal cards into the shortest column, keeping their order left-to-right, top-to-bottom
+function masonry(jobs){
+  const n = colsFor(window.innerWidth);
+  if(n === 1) return `<div class="joblist">${jobs.map(jobCard).join('')}</div>`;
+  const cols = Array.from({length:n}, () => ({h:0, html:''}));
+  for(const j of jobs){
+    const items = Object.keys(j.items||{}).length;
+    const h = 7 + items * 1.6 + (j.notes ? 1.2 : 0) + (j.due ? 0.4 : 0);
+    const c = cols.reduce((a,b) => b.h < a.h ? b : a);
+    c.h += h; c.html += jobCard(j);
+  }
+  return `<div class="mason">${cols.map(c => `<div class="mcol">${c.html}</div>`).join('')}</div>`;
+}
+let lastCols = colsFor(window.innerWidth);
+window.addEventListener('resize', () => { const n = colsFor(window.innerWidth); if(n !== lastCols && VIEW !== 'tv'){ lastCols = n; render(); } });
+
 function renderBoard(){
   const F = state.jobFilter;
   const all = Object.values(state.jobs).filter(j => !F || F.keys.includes(j.contactKey));
@@ -796,6 +832,10 @@ function renderBoard(){
   const conn = demo ? `<span class="conn"><span class="dot demo"></span>Demo</span>`
     : `<span class="conn"><span class="dot ${state.online?'':'off'}"></span>${state.online?'Live':'Offline'}</span>`;
   const loginAs = state.user.email || state.user.phone;
+  const pageTabs = state.staff ? `<div class="tabs pagetabs">
+        <button data-act="page" data-page="jobs" class="${state.page==='jobs'?'on':''}">Jobs</button>
+        <button data-act="page" data-page="customers" class="${state.page==='customers'?'on':''}">Customers</button>
+      </div>` : '';
   return `<div class="wrap">
     <div class="top">${LOGO}${conn}
       ${state.staff?`<button class="btn small" data-act="screens">TV screens</button>`:''}
@@ -808,23 +848,20 @@ function renderBoard(){
     ${demo?`<div class="banner">Demo mode: everything is saved only in this browser. Sign out and back in as a customer or as <b>${esc(STAFF[0])}</b> to compare the two views.</div>`:''}
     ${weatherStrip()}
     ${state.err?`<div class="banner">Problem reaching the database: ${esc(state.err)}</div>`:''}
-    ${state.staff?`<div class="tabs pagetabs">
-        <button data-act="page" data-page="jobs" class="${state.page==='jobs'?'on':''}">Jobs</button>
-        <button data-act="page" data-page="customers" class="${state.page==='customers'?'on':''}">Customers</button>
-      </div>`:''}
-    ${state.staff && state.page==='customers' ? renderCustomers() : `
+    ${state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}</div>${renderCustomers()}` : `
     ${F?`<div class="filterbar">Showing jobs for <b>${esc(F.name||'this customer')}</b><span class="spacer"></span><button class="btn small ghost" data-act="clear-filter">Show all</button></div>`:''}
     <div class="bar2">
+      ${pageTabs}
       <div class="tabs">
         <button data-act="tab" data-tab="open" class="${state.tab==='open'?'on':''}">Open (${open.length})</button>
         <button data-act="tab" data-tab="closed" class="${state.tab==='closed'?'on':''}">Collected (${closed.length})</button>
       </div>
+      ${jobChips}
       <span class="spacer"></span>
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
     </div>
-    ${jobChips}
     ${!state.loaded ? `<div class="empty">Loading…</div>`
-      : list.length ? `<div class="joblist">${list.map(jobCard).join('')}</div>`
+      : list.length ? masonry(list)
       : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.' : js !== 'all' ? 'No jobs with that status.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}`}
