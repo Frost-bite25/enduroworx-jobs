@@ -74,6 +74,24 @@
   .custtag{display:inline-block;font-size:10px;font-weight:600;color:var(--muted);margin:2px 0}
   .tnew{display:inline-block;margin-top:.6vw;font-size:.85vw;font-weight:800;letter-spacing:.05em;background:#f5c542;color:#2a1d00;border-radius:.3vw;padding:.15vw .5vw}
   ul.titems li.tnewitem{color:#ffd77a;font-weight:600}
+  details.parts{margin-top:12px;border:1px solid var(--line);border-radius:10px;background:var(--bg)}
+  details.parts summary{cursor:pointer;list-style:none;padding:10px 12px;font-size:14px;font-weight:600;display:flex;gap:8px;align-items:center}
+  details.parts summary::-webkit-details-marker{display:none}
+  details.parts summary::after{content:'▾';margin-left:auto;color:var(--muted);transition:transform .2s}
+  details.parts[open] summary::after{transform:rotate(180deg)}
+  .psum{font-weight:400;color:var(--muted);font-size:13px} .psum b{color:var(--text)}
+  ul.plist{list-style:none;margin:0;padding:0 12px}
+  ul.plist li{display:flex;gap:8px;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid var(--line);font-size:14px}
+  .pname{flex:1;min-width:0} .pno,.pfor{display:block;font-size:11px;color:var(--muted)}
+  .plink{background:none;border:0;padding:0;text-align:left;font-size:14px}
+  .pnum{display:flex;gap:6px;align-items:center;white-space:nowrap} .pq{color:var(--muted);font-size:13px}
+  .padd{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--line)}
+  .padd input,.padd select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:15px;min-width:0}
+  .padd .pn{flex:1 1 100%} .padd .pnum2{flex:1 1 30%} .padd .pq2{flex:0 0 64px} .padd .pr2{flex:1 1 25%}
+  .padd select{flex:1 1 60%} .padd .btn{flex:0 0 auto}
+  .ptotals{padding:8px 12px 10px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);text-align:right}
+  .ptotals b{color:var(--text)}
+  .ptag{display:block;font-size:11px;color:#9fb4ff;margin-top:1px}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -271,7 +289,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.7.3";
+const APP_VERSION = "1.8.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -383,10 +401,13 @@ function ago(ms){
 function fmtDate(d){ if(!d) return ''; const x=new Date(d+'T00:00'); return isNaN(x)?d:x.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'}); }
 function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; (dlg.open ? dlg : document.body).appendChild(t); setTimeout(()=>t.remove(),3200); }
 function itemsOf(job){ return Object.entries(job.items||{}).map(([id,it])=>({id,...it})).sort((a,b)=>(a.t||0)-(b.t||0)); }
+function partsOf(job){ return Object.entries(job.parts||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.t||0)-(b.t||0)); }
+const partLine = p => (+p.qty||1) * (+p.price||0);
 function stats(job){
-  const items = itemsOf(job), done = items.filter(i=>i.done);
-  return {items, total:items.length, done:done.length,
-    est: items.reduce((s,i)=>s+(+i.cost||0),0),
+  const items = itemsOf(job), done = items.filter(i=>i.done), parts = partsOf(job);
+  const work = items.reduce((s,i)=>s+(+i.cost||0),0), partsTotal = parts.reduce((s,p)=>s+partLine(p),0);
+  return {items, total:items.length, done:done.length, parts, work, partsTotal,
+    est: work + partsTotal,
     doneCost: done.reduce((s,i)=>s+(+i.cost||0),0),
     pct: items.length ? Math.round(done.length/items.length*100) : 0};
 }
@@ -640,7 +661,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
+  tab:'open', partsOpen:new Set(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'email', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -768,6 +789,7 @@ function jobCard(job){
           <span class="tx">${esc(it.text)}</span>
           ${fresh?`<span class="newtag">NEW · from customer</span>`:cust?`<span class="custtag">from customer</span>`:''}
           ${it.by?`<span class="by">added by ${esc(it.by)}${it.done&&it.doneBy?` · done by ${esc(it.doneBy)}`:''}</span>`:''}
+          ${(() => { const ps = s.parts.filter(p => p.itemId === it.id); return ps.length ? `<span class="ptag">🔩 ${ps.map(p => esc(p.name)).join(', ')} · ${money(ps.reduce((a,p)=>a+partLine(p),0))}</span>` : ''; })()}
         ${ed ? `</button>` : `</div>`}
         ${staff
           ? `<button class="cost" data-act="edit-cost" data-id="${id}" data-item="${it.id}">${it.cost?money(it.cost):'+ cost'}</button>`
@@ -780,6 +802,7 @@ function jobCard(job){
       ${staff?`<input class="c" data-draft="c:${id}" placeholder="${CURRENCY} est." inputmode="decimal" value="${esc(state.drafts['c:'+id]||'')}">`:''}
       <button class="btn small" data-act="add-item" data-id="${id}">Add</button>
     </div>` : ''}
+    ${partsPanel(job, s)}
     <div class="jfoot">
       ${staff
         ? (phoneForJob(job) ? `<a class="btn small wa" href="${esc(waLink(phoneForJob(job), waMessageFor(job)))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</a>` : '')
@@ -794,6 +817,52 @@ function jobCard(job){
         : `<button class="btn small ghost" data-act="collected" data-id="${id}">Mark collected</button>`) : ''}
     </div>
   </div>`;
+}
+
+/* ---------- Parts used (staff edit, customers see) ---------- */
+function partsPanel(job, s){
+  const id = job.id, staff = state.staff, parts = s.parts;
+  if(!staff && !parts.length) return '';
+  const open = state.partsOpen.has(id);
+  const taskName = itemId => (job.items||{})[itemId]?.text || '';
+  const rows = parts.map(p => `<li>
+      <div class="pname">${staff ? `<button class="plink" data-act="part-name" data-id="${id}" data-part="${p.id}">${esc(p.name)}</button>` : esc(p.name)}
+        ${p.partNo?`<span class="pno">${esc(p.partNo)}</span>`:''}
+        ${p.itemId && taskName(p.itemId)?`<span class="pfor">for ${esc(taskName(p.itemId))}</span>`:''}</div>
+      <div class="pnum">
+        ${staff ? `<button class="cost" data-act="part-qty" data-id="${id}" data-part="${p.id}">${+p.qty||1} ×</button>
+                   <button class="cost" data-act="part-price" data-id="${id}" data-part="${p.id}">${p.price?money(p.price):'+ price'}</button>`
+                : `<span class="pq">${+p.qty||1} × ${p.price?money(p.price):'TBC'}</span>`}
+        <b>${money(partLine(p))}</b>
+        ${staff?`<button class="x" data-act="del-part" data-id="${id}" data-part="${p.id}" aria-label="Remove part">×</button>`:''}
+      </div></li>`).join('');
+  const d = k => esc(state.drafts[`p${k}:${id}`] || '');
+  const sel = state.drafts[`pi:${id}`] || '';
+  const addForm = staff ? `<div class="padd">
+      <input class="pn" data-draft="pn:${id}" placeholder="Part (e.g. Air filter)" value="${d('n')}">
+      <input class="pnum2" data-draft="pp:${id}" placeholder="Part no." value="${d('p')}">
+      <input class="pq2" data-draft="pq:${id}" placeholder="Qty" inputmode="decimal" value="${d('q')}">
+      <input class="pr2" data-draft="pr:${id}" placeholder="${CURRENCY} each" inputmode="decimal" value="${d('r')}">
+      <select data-draft="pi:${id}" aria-label="For which task">
+        <option value="">For: whole job</option>
+        ${s.items.map(it => `<option value="${esc(it.id)}" ${sel===it.id?'selected':''}>For: ${esc(it.text)}</option>`).join('')}
+      </select>
+      <button class="btn small" data-act="add-part" data-id="${id}">Add part</button>
+    </div>` : '';
+  return `<details class="parts" data-id="${id}" ${open?'open':''}>
+    <summary>🔩 Parts used <span class="psum">${parts.length ? `${parts.length} part${parts.length===1?'':'s'} · <b>${money(s.partsTotal)}</b>` : 'none yet'}</span></summary>
+    ${parts.length ? `<ul class="plist">${rows}</ul>` : ''}
+    ${addForm}
+    ${parts.length || s.work ? `<div class="ptotals">Work ${money(s.work)} + Parts ${money(s.partsTotal)} = <b>${money(s.est)}</b></div>` : ''}
+  </details>`;
+}
+function addPart(id){
+  const g = k => (state.drafts[`p${k}:${id}`] || '').trim();
+  const name = g('n'); if(!name) return toast('Enter the part name');
+  const qty = parseFloat(g('q').replace(',', '.')) || 1, price = parseCost(g('r'));
+  const part = {name, partNo:g('p'), qty, price, itemId:g('i'), t:Date.now(), by:myName()};
+  ['n','p','q','r','i'].forEach(k => delete state.drafts[`p${k}:${id}`]);
+  act(() => B().updateJob(id, {[`parts.${uid()}`]:part, ...touch()}));
 }
 
 /* ---------- Customers (staff) ---------- */
@@ -891,11 +960,11 @@ function phoneForJob(job){
 function waMessageFor(job){
   const s = stats(job), hi = `Hi ${firstName(job.customer)}`, bike = job.bike ? `your ${job.bike}` : 'your bike';
   const done = s.items.filter(i => i.done).map(i => i.text), todo = s.items.filter(i => !i.done).map(i => i.text);
-  const total = s.est ? `\nEstimated total: ${money(s.est)}` : '';
+  const total = s.est ? `\nEstimated total: ${money(s.est)}${s.partsTotal ? ` (work ${money(s.work)} + parts ${money(s.partsTotal)})` : ''}` : '';
   const sign = `\n– Enduroworx Plettenberg Bay`, track = `\nFollow your bike here: ${jobUrl(job.id)}`;
   switch(job.status){
     case 'ready':
-      return `${hi}, ${bike} is ready for collection 🏍️${done.length ? `\nWork done: ${done.join(', ')}.` : ''}${total}${track}${sign}`;
+      return `${hi}, ${bike} is ready for collection 🏍️${done.length ? `\nWork done: ${done.join(', ')}.` : ''}${s.parts.length ? `\nParts used: ${s.parts.map(p => `${(+p.qty||1) > 1 ? (+p.qty)+'× ' : ''}${p.name}`).join(', ')}.` : ''}${total}${track}${sign}`;
     case 'waiting_parts':
       return `${hi}, quick update on ${bike}: we're waiting for parts${todo.length ? ` for ${todo.join(', ')}` : ''}. We'll let you know as soon as they arrive.${track}${sign}`;
     case 'in_progress':
@@ -1196,6 +1265,14 @@ app.addEventListener('click', async e => {
     case 'del-item':
       if(confirm(`Remove "${it.text}"?`)) act(() => B().updateJob(id, {[`items.${item}`]:B().del(), ...touch()})); break;
     case 'collected': act(() => B().updateJob(id, {status:'collected', collectedAt:Date.now(), ...touch()})); break;
+    case 'add-part': addPart(id); break;
+    case 'part-name': { const pt = job.parts[b.dataset.part]; const v = prompt('Part name', pt.name); if(v==null || !v.trim()) return;
+      act(() => B().updateJob(id, {[`parts.${b.dataset.part}.name`]:v.trim(), ...touch()})); break; }
+    case 'part-qty': { const pt = job.parts[b.dataset.part]; const v = prompt('Quantity', pt.qty||1); if(v==null) return;
+      act(() => B().updateJob(id, {[`parts.${b.dataset.part}.qty`]:parseFloat(String(v).replace(',', '.')) || 1, ...touch()})); break; }
+    case 'part-price': { const pt = job.parts[b.dataset.part]; const v = prompt(`Price each (${CURRENCY})`, pt.price||''); if(v==null) return;
+      act(() => B().updateJob(id, {[`parts.${b.dataset.part}.price`]:parseCost(v), ...touch()})); break; }
+    case 'del-part': { const pt = job.parts[b.dataset.part]; if(confirm(`Remove "${pt.name}"?`)) act(() => B().updateJob(id, {[`parts.${b.dataset.part}`]:B().del(), ...touch()})); break; }
     case 'seen-all': {
       const patch = {}; newReqs(job).forEach(it => patch[`items.${it.id}.seen`] = true);
       if(!Object.keys(patch).length) break;
@@ -1212,10 +1289,15 @@ app.addEventListener('change', e => {
     [`items.${item}.seen`]:true, ...touch()}));
   if(a === 'status') act(() => B().updateJob(id, {status:el.value, ...(el.value==='invoiced'?{invoicedAt:Date.now()}:{}), ...(el.value==='collected'?{collectedAt:Date.now()}:{}), ...touch()}));
 });
+app.addEventListener('toggle', e => {
+  const d = e.target; if(!d.matches?.('details.parts')) return;
+  d.open ? state.partsOpen.add(d.dataset.id) : state.partsOpen.delete(d.dataset.id);
+}, true);
 app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k){ state.drafts[k] = e.target.value; if(k === 'csearch') render(); } });
 app.addEventListener('keydown', e => {
   const k = e.target.dataset?.draft;
   if(e.key === 'Enter' && k && /^[tc]:/.test(k)){ e.preventDefault(); addItem(k.slice(2)); }
+  if(e.key === 'Enter' && k && /^p[npqr]:/.test(k)){ e.preventDefault(); addPart(k.slice(3)); }
   if(e.key === 'Enter' && e.target.id === 'ident'){ e.preventDefault(); loginSend(); }
   if(e.key === 'Enter' && e.target.id === 'code'){ e.preventDefault(); loginCode(); }
   if(e.key === 'Enter' && e.target.id === 'pname'){ e.preventDefault(); app.querySelector('[data-act=save-profile]')?.click(); }
