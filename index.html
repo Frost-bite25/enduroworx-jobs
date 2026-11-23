@@ -355,7 +355,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.3.0";
+const APP_VERSION = "2.3.1";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -1438,7 +1438,6 @@ function renderBoard(){
       : `<div class="empty">${state.tab==='toinvoice' ? 'Nothing waiting to be invoiced. 👍' : state.tab!=='open' ? (state.staff ? 'No invoiced jobs yet.' : 'No finished jobs yet.') : js !== 'all' ? 'No jobs with that status.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'Your bikes will show here once booked in.'}</div>`}`}
-    ${!state.staff ? `<p class="staffin"><button class="linkbtn" data-act="staff-login">Workshop staff sign-in</button></p>` : ''}
     ${VERSION_TAG}
   </div>`;
 }
