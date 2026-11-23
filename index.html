@@ -99,6 +99,16 @@
   .screenrow .sbtns{display:flex;gap:6px;flex-wrap:wrap}
   .screenrow .nm{flex:1} .screenrow .nm small{display:block;color:var(--muted);font-size:12px}
 
+  .pagetabs{margin-bottom:14px}
+  .csearch{width:100%;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:16px;margin-bottom:12px}
+  .cust{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:10px}
+  .cust.unreg{border-style:dashed}
+  .chead{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .chead b{font-size:16px}
+  .tag.grey{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
+  .cmeta{font-size:13px;color:var(--muted);margin-top:3px}
+  .clinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .filterbar{display:flex;align-items:center;gap:8px;background:#11183a;border:1px solid #2a3a8a;border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:12px}
   .land{max-width:420px;margin:10vh auto;padding:20px}
   .land .logo{font-size:40px;display:flex;align-items:center;margin:0 auto 14px;width:max-content}
   .land h1{text-align:center;margin-bottom:6px}
@@ -183,7 +193,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.3.4";
+const APP_VERSION = "1.4.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -345,6 +355,7 @@ async function firebaseBackend(){
     del: () => F.deleteField(),
     getProfile: async id => { const s = await F.getDoc(F.doc(db,'users',id)); return s.exists() ? s.data() : null; },
     setProfile: (id, d) => F.setDoc(F.doc(db,'users',id), d, {merge:true}),
+    subscribeUsers: (cb, onErr) => listen(F.collection(db,'users'), o => cb(o), (ok, err) => err && onErr && onErr(err)),
     subscribeScreens: (cb, onErr) => listen(F.collection(db,'screens'), o => cb(Object.values(o)), (ok, err) => err && onErr && onErr(err)),
     addScreen: (token, d) => F.setDoc(F.doc(db,'screens',token), d),
     removeScreen: token => F.deleteDoc(F.doc(db,'screens',token)),
@@ -396,6 +407,7 @@ function demoBackend(){
     del: () => DEL,
     async getProfile(id){ return read().users[id] || null; },
     async setProfile(id, p){ const d = read(); d.users[id] = {...d.users[id], ...p}; write(d); },
+    subscribeUsers(cb){ return sub(() => cb(read().users)); },
     subscribeScreens(cb, onErr){ return sub(() => cb(Object.entries(read().screens).map(([id,s]) => ({...s, id})))); },
     async addScreen(token, s){ const d = read(); d.screens[token] = s; write(d); },
     async removeScreen(token){ const d = read(); delete d.screens[token]; write(d); },
@@ -479,7 +491,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
+  tab:'open', page:'jobs', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'email', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -528,6 +540,8 @@ function renderProfile(){
     <h1>Welcome</h1>
     <p class="lead">What name should we put on your job card?</p>
     <input class="in" id="pname" placeholder="Your name" autocomplete="name" value="${esc(state.profile?.name||'')}">
+    ${state.user?.phone ? '' : `<input class="in" id="pcell" type="tel" placeholder="Cell number (optional)" autocomplete="tel" value="${esc(state.profile?.cell||'')}">
+    <p class="hint" style="text-align:center;margin:-4px 0 12px">So the workshop can call or WhatsApp you about your bike.</p>`}
     <button class="btn primary block" data-act="save-profile">Continue</button>
     ${VERSION_TAG}
   </div>`;
@@ -605,8 +619,70 @@ function jobCard(job){
   </div>`;
 }
 
+/* ---------- Customers (staff) ---------- */
+const digits = s => String(s||'').replace(/\D/g,'');
+function customerList(){
+  const users = Object.entries(state.users||{}).map(([uid,u]) => ({uid, ...u,
+    contactPhone: u.phone || u.cell || '',
+    keys: [u.email, u.phone, u.cell].map(normContact).filter(Boolean)}));
+  const known = new Set(users.flatMap(u => u.keys));
+  // People Erik booked in who haven't signed in yet
+  const unreg = {};
+  for(const j of Object.values(state.jobs)){
+    if(!j.contactKey || known.has(j.contactKey)) continue;
+    const isMail = j.contactKey.includes('@');
+    const u = unreg[j.contactKey] ||= {uid:'', name:j.customer, email:isMail?j.contactKey:'', contactPhone:isMail?'':j.contactKey,
+      keys:[j.contactKey], unregistered:true, last:0};
+    if((j.createdAt||0) >= u.last){ u.last = j.createdAt||0; u.name = j.customer || u.name; }
+  }
+  return [...users, ...Object.values(unreg)];
+}
+const jobsFor = keys => Object.values(state.jobs).filter(j => j.contactKey && keys.includes(j.contactKey));
+
+function renderCustomers(){
+  const q = (state.drafts.csearch || '').trim().toLowerCase(), qd = digits(q);
+  let list = customerList();
+  if(q) list = list.filter(c => (c.name||'').toLowerCase().includes(q) || (c.email||'').includes(q)
+      || (qd.length >= 3 && [c.contactPhone].some(ph => digits(ph).includes(qd) || ('0' + digits(ph).slice(2)).includes(qd))));
+  const rank = c => c.keys.some(k => STAFF_KEYS.includes(k)) ? 2 : c.unregistered ? 1 : 0;
+  list.sort((a,b) => (rank(a) - rank(b)) || (a.name||'').localeCompare(b.name||''));
+  const regCount = Object.values(state.users||{}).filter(u => ![u.email,u.phone].map(normContact).some(k => STAFF_KEYS.includes(k))).length;
+  const rows = list.map(c => {
+    const js = jobsFor(c.keys), open = js.filter(j => j.status !== 'collected').length;
+    const isStaffRow = c.keys.some(k => STAFF_KEYS.includes(k));
+    const ph = c.contactPhone, wa = digits(ph);
+    const filterKey = esc(c.keys.join('|'));
+    return `<div class="cust ${c.unregistered?'unreg':''}">
+      <div class="chead"><b>${esc(c.name || 'No name yet')}</b>
+        ${isStaffRow?'<span class="tag">STAFF</span>':''}
+        ${c.unregistered?'<span class="tag grey">Not signed in yet</span>':''}</div>
+      <div class="cmeta">${[c.email, ph && ('0' + digits(ph).slice(2)).replace(/^(\d{3})(\d{3})(\d+)$/,'$1 $2 $3')].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="cmeta">${c.createdAt ? `Joined ${esc(new Date(c.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric'}))} · ` : ''}${
+        js.length ? `<b style="color:var(--text)">${open}</b> open · ${js.length} job${js.length===1?'':'s'} in total` : 'No jobs yet'}</div>
+      <div class="clinks">
+        ${ph?`<a class="btn small" href="tel:${esc(ph)}">Call</a><a class="btn small" href="https://wa.me/${esc(wa)}" target="_blank" rel="noopener">WhatsApp</a>`:''}
+        ${c.email?`<a class="btn small" href="mailto:${esc(c.email)}">Email</a>`:''}
+        ${js.length?`<button class="btn small" data-act="cust-jobs" data-keys="${filterKey}" data-name="${esc(c.name||'')}">View jobs</button>`:''}
+        <button class="btn small" data-act="cust-book" data-key="${esc(c.keys[0]||'')}" data-name="${esc(c.name||'')}">+ Book in</button>
+      </div>
+    </div>`;
+  }).join('');
+  return `<input class="csearch" data-draft="csearch" type="search" placeholder="Search name, email or cell…" value="${esc(state.drafts.csearch||'')}">
+    ${state.usersErr?`<div class="banner">Couldn’t load customers: ${esc(state.usersErr)}</div>`:''}
+    <div class="cmeta" style="margin:0 0 10px">${regCount} registered customer${regCount===1?'':'s'}</div>
+    ${rows || `<div class="empty">${q ? 'No customers match your search.' : 'No customers have signed up yet.'}</div>`}`;
+}
+let unsubUsers = null;
+function showCustomers(){
+  state.page = 'customers';
+  unsubUsers ||= B().subscribeUsers(u => { state.usersErr = null; state.users = u || {}; render(); },
+    err => { state.usersErr = friendlyError(err); render(); });
+  render();
+}
+
 function renderBoard(){
-  const all = Object.values(state.jobs);
+  const F = state.jobFilter;
+  const all = Object.values(state.jobs).filter(j => !F || F.keys.includes(j.contactKey));
   const open = all.filter(j => j.status !== 'collected').sort((a,b) => (a.createdAt||0)-(b.createdAt||0));
   const closed = all.filter(j => j.status === 'collected').sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
   const list = state.tab === 'open' ? open : closed;
@@ -625,6 +701,12 @@ function renderBoard(){
     ${demo?`<div class="banner">Demo mode: everything is saved only in this browser. Sign out and back in as a customer or as <b>${esc(STAFF[0])}</b> to compare the two views.</div>`:''}
     ${weatherStrip()}
     ${state.err?`<div class="banner">Problem reaching the database: ${esc(state.err)}</div>`:''}
+    ${state.staff?`<div class="tabs pagetabs">
+        <button data-act="page" data-page="jobs" class="${state.page==='jobs'?'on':''}">Jobs</button>
+        <button data-act="page" data-page="customers" class="${state.page==='customers'?'on':''}">Customers</button>
+      </div>`:''}
+    ${state.staff && state.page==='customers' ? renderCustomers() : `
+    ${F?`<div class="filterbar">Showing jobs for <b>${esc(F.name||'this customer')}</b><span class="spacer"></span><button class="btn small ghost" data-act="clear-filter">Show all</button></div>`:''}
     <div class="bar2">
       <div class="tabs">
         <button data-act="tab" data-tab="open" class="${state.tab==='open'?'on':''}">Open (${open.length})</button>
@@ -637,14 +719,14 @@ function renderBoard(){
       : list.length ? list.map(jobCard).join('')
       : `<div class="empty">${state.tab!=='open' ? 'No collected jobs yet.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
-          : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}
+          : 'You have no bikes booked in. Tap “Book my bike in” to start.'}</div>`}`}
     ${VERSION_TAG}
   </div>`;
 }
 
 /* ---------- job dialog ---------- */
-function openJobDialog(job){
-  const isNew = !job, staff = state.staff; job = job || {};
+function openJobDialog(job, preset){
+  const isNew = !job, staff = state.staff; job = job || preset || {};
   dlg.innerHTML = `<form method="dialog">
     <h2>${isNew?'Book a bike in':'Edit job'}</h2>
     ${staff ? `
@@ -784,14 +866,22 @@ app.addEventListener('click', async e => {
       const name = document.getElementById('pname').value.trim();
       if(!name) return toast('Please enter your name');
       await act(async () => {
-        const p = {name, email:state.user.email, phone:state.user.phone};
-        await B().setProfile(state.user.uid, p); state.profile = p; startBoard();
+        const cellEl = document.getElementById('pcell');
+        const cell = cellEl ? normContact(cellEl.value) : (state.profile?.cell || '');
+        if(cellEl && cellEl.value.trim() && !isPhone(cell)) return toast('Please check your cell number');
+        const p = {name, email:state.user.email, phone:state.user.phone, cell};
+        if(!state.profile?.createdAt) p.createdAt = Date.now();
+        await B().setProfile(state.user.uid, p); state.profile = {...state.profile, ...p}; startBoard();
       });
       break; }
     case 'rename': state.phase = 'profile'; render(); break;
     case 'signout': if(confirm('Sign out?')) B().signOut(); break;
     case 'screens': openScreensDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
+    case 'page': if(b.dataset.page === 'customers') showCustomers(); else { state.page = 'jobs'; render(); } break;
+    case 'clear-filter': state.jobFilter = null; render(); break;
+    case 'cust-jobs': state.jobFilter = {keys:b.dataset.keys.split('|'), name:b.dataset.name}; state.page = 'jobs'; state.tab = 'open'; render(); window.scrollTo(0,0); break;
+    case 'cust-book': openJobDialog(null, {customer:b.dataset.name, contactKey:b.dataset.key}); break;
     case 'new-job': openJobDialog(); break;
     case 'edit-job': openJobDialog(job); break;
     case 'add-item': addItem(id); break;
@@ -814,7 +904,7 @@ app.addEventListener('change', e => {
   if(a === 'tick') act(() => B().updateJob(id, {[`items.${item}.done`]:el.checked, [`items.${item}.doneBy`]:el.checked?myName():'', ...touch()}));
   if(a === 'status') act(() => B().updateJob(id, {status:el.value, ...touch()}));
 });
-app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k) state.drafts[k] = e.target.value; });
+app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k){ state.drafts[k] = e.target.value; if(k === 'csearch') render(); } });
 app.addEventListener('keydown', e => {
   const k = e.target.dataset?.draft;
   if(e.key === 'Enter' && k && /^[tc]:/.test(k)){ e.preventDefault(); addItem(k.slice(2)); }
@@ -920,6 +1010,8 @@ function startBoard(){
 async function onUser(user){
   unsubJobs && unsubJobs(); unsubJobs = null;
   unsubScreens && unsubScreens(); unsubScreens = null;
+  unsubUsers && unsubUsers(); unsubUsers = null;
+  state.users = {}; state.page = 'jobs'; state.jobFilter = null;
   if(dlg.open) dlg.close();
   state.user = user; state.jobs = {}; state.err = null;
   if(!user || user.anon){
