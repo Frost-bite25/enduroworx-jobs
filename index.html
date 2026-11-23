@@ -83,6 +83,7 @@
   .addrow input.t{flex:1} .addrow input.c{width:96px}
   .jfoot{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
   .nw{white-space:nowrap}
+  .ago{opacity:.75}
 
   dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:0;width:min(520px,94vw)}
   dialog::backdrop{background:rgba(0,0,0,.6)}
@@ -223,6 +224,7 @@
   .s-in_progress .pill{background:var(--progress);color:#1a1200} .s-waiting_parts .pill{background:var(--parts);color:#160926}
   .s-ready .pill{background:var(--ready);color:#04160b}
   .tbike{font-size:1.25vw;color:var(--muted);margin-top:.2vw}
+  .tin{font-size:1vw;color:var(--muted);margin-top:.25vw}
   .tdue{font-size:1.05vw;color:var(--accent);margin-top:.3vw}
   .tcard .track{height:.75vw;margin-top:1vw;border-radius:1vw}
   .tmeta{display:flex;justify-content:space-between;font-size:1.2vw;color:var(--muted);margin-top:.5vw}
@@ -254,7 +256,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.5.2";
+const APP_VERSION = "1.5.3";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -331,6 +333,20 @@ const showContact = k => /^\+27\d{9}$/.test(k||'') ? ('0' + k.slice(3)).replace(
 const isEmail = s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 const isPhone = s => /^\+\d{9,15}$/.test(s);
 const STAFF_KEYS = STAFF.map(normContact);
+// Timestamp → "Mon 23 Nov, 13:57" (SA time), plus "today"/"yesterday"/"3 days ago"
+function fmtStamp(ms){
+  if(!ms) return '';
+  const tz = 'Africa/Johannesburg', d = new Date(ms);
+  const date = d.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short',timeZone:tz});
+  const time = d.toLocaleTimeString('en-ZA',{hour:'2-digit',minute:'2-digit',hour12:false,timeZone:tz});
+  return `${date}, ${time}`;
+}
+function ago(ms){
+  if(!ms) return '';
+  const day = s => new Date(new Date(s).toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'}));
+  const n = Math.round((day(Date.now()) - day(ms)) / 864e5);
+  return n <= 0 ? 'today' : n === 1 ? 'yesterday' : `${n} days ago`;
+}
 function fmtDate(d){ if(!d) return ''; const x=new Date(d+'T00:00'); return isNaN(x)?d:x.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'}); }
 function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove()); const t=document.createElement('div'); t.className='toast'; t.textContent=msg; (dlg.open ? dlg : document.body).appendChild(t); setTimeout(()=>t.remove(),3200); }
 function itemsOf(job){ return Object.entries(job.items||{}).map(([id,it])=>({id,...it})).sort((a,b)=>(a.t||0)-(b.t||0)); }
@@ -645,6 +661,7 @@ function jobCard(job){
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
       <div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
+        ${job.createdAt?`<div class="sub">Booked in ${esc(fmtStamp(job.createdAt))} <span class="ago">(${esc(ago(job.createdAt))})</span></div>`:''}
         ${job.due?`<div class="sub" style="color:var(--accent)">Wanted by ${esc(fmtDate(job.due))}</div>`:''}</div>
       ${staff
         ? `<select data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
@@ -1085,6 +1102,7 @@ function tvCard(job){
   return `<div class="tcard s-${esc(job.status)}">
     <div class="thead"><div class="tname">${esc(job.customer)}</div><div class="pill">${esc(STATUSES[job.status]?.label||job.status)}</div></div>
     ${job.bike?`<div class="tbike">${esc(job.bike)}</div>`:''}
+    ${job.createdAt?`<div class="tin">In since ${esc(fmtStamp(job.createdAt))} · ${esc(ago(job.createdAt))}</div>`:''}
     ${job.due?`<div class="tdue">Wanted by ${esc(fmtDate(job.due))}</div>`:''}
     <div class="track"><i style="width:${s.pct}%"></i></div>
     <div class="tmeta"><span>${s.total?`<b>${s.done}</b> of ${s.total} done`:'No items yet'}</span><span>${s.est?`Est <b>${money(s.est)}</b>`:''}</span></div>
