@@ -181,6 +181,8 @@
   input.in,textarea.in{width:100%;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:10px;font-size:16px}
   textarea.in{min-height:80px;resize:vertical}
   .hint{font-size:12px;color:var(--muted);margin-top:4px}
+  .exbtn{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:4px;margin-bottom:10px;padding:12px 14px}
+  .exbtn span{font-size:13px;color:var(--muted);font-weight:400;line-height:1.4}
   .dfoot{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
   .toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--panel2);border:1px solid var(--line);padding:10px 16px;border-radius:10px;font-size:14px;z-index:9;max-width:90vw}
   .screenrow{padding:12px 0;border-top:1px solid var(--line)}
@@ -200,6 +202,7 @@
   .tag.grey{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
   .cmeta{font-size:13px;color:var(--muted);margin-top:3px}
   .clinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
+  .hbtns{display:flex;flex-direction:column;gap:6px} .hbtns .btn{justify-content:center;width:100%}
   .qrtile{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px;font-size:12px;line-height:1.2;text-align:left;color:var(--muted)}
   .qrtile img{width:38px;height:38px;background:#fff;padding:2px;border-radius:5px;image-rendering:pixelated}
   @media (max-width: 759px){ .qrtile{padding:4px} .qrtile span{display:none} .qrtile img{width:32px;height:32px}
@@ -352,7 +355,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.2.0";
+const APP_VERSION = "2.3.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -600,6 +603,9 @@ async function firebaseBackend(){
     addScreen: (token, d) => F.setDoc(F.doc(db,'screens',token), d),
     removeScreen: token => F.deleteDoc(F.doc(db,'screens',token)),
     // Shared forecast: phones fetch it and save it here, the TV reads it with the jobs
+    getAll: async name => {
+      if(name === 'meta'){ const w = await F.getDoc(F.doc(db,'meta','weather')); return {weather: w.exists() ? w.data() : null}; }
+      const o = {}; (await F.getDocs(F.collection(db, name))).forEach(d => o[d.id] = d.data()); return o; },
     subscribeWeather: cb => F.onSnapshot(F.doc(db,'meta','weather'), snap => cb(snap.exists() ? snap.data() : null), err => console.warn('Shared weather', err)),
     saveWeather: w => F.setDoc(F.doc(db,'meta','weather'), w),
   };
@@ -664,6 +670,7 @@ function demoBackend(){
     subscribeScreens(cb, onErr){ return sub(() => cb(Object.entries(read().screens).map(([id,s]) => ({...s, id})))); },
     async addScreen(token, s){ const d = read(); d.screens[token] = s; write(d); },
     async removeScreen(token){ const d = read(); delete d.screens[token]; write(d); },
+    async getAll(name){ const d = read(); return name === 'log' ? Object.fromEntries((d.log||[]).map(e => [e.id, e])) : name === 'meta' ? {weather:d.weather||null} : (d[name] || {}); },
     subscribeWeather(cb){ return sub(() => cb(read().weather || null)); },
     async saveWeather(w){ const d = read(); d.weather = w; write(d); },
   };
@@ -979,6 +986,30 @@ function addPart(id){
 }
 
 /* ---------- Export all jobs to a spreadsheet (manual backup + invoicing) ---------- */
+function openExportDialog(){
+  dlg.dataset.kind = 'export';
+  dlg.innerHTML = `<div class="dbody">
+    <h2>Export</h2>
+    <button class="btn block exbtn" data-sact="ex-csv"><b>📊 Spreadsheet (.csv)</b><span>All jobs, one row each: customer, bike, status, dates, tasks, parts and totals. Opens in Excel or Numbers. Handy for invoicing.</span></button>
+    <button class="btn block exbtn" data-sact="ex-json"><b>🗄️ Full backup (.json)</b><span>Everything in the database: all jobs, the activity log, staff profiles and TV screens. Keep it safe: it can be used to restore the board.</span></button>
+    <p class="hint">Tip: do a full backup every week or so and keep it in your cloud storage.</p>
+    <div class="dfoot"><button class="btn" data-sact="close">Close</button></div></div>`;
+  dlg.showModal();
+}
+async function exportBackup(){
+  try{
+    toast('Preparing backup…');
+    const [log, users, screens, meta] = await Promise.all(['log','users','screens','meta'].map(c => B().getAll(c)));
+    const backup = {app:'Enduroworx job board', version:APP_VERSION, exportedAt:new Date().toISOString(),
+      collections:{jobs:Object.fromEntries(Object.values(state.jobs).map(j => [j.id, Object.fromEntries(Object.entries(j).filter(([k]) => k !== 'id'))])),
+        log, users, screens, meta}};
+    const day = new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'});
+    const url = URL.createObjectURL(new Blob([JSON.stringify(backup, null, 1)], {type:'application/json'}));
+    const a = Object.assign(document.createElement('a'), {href:url, download:`enduroworx-backup-${day}.json`});
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast(`Backup saved: ${Object.keys(backup.collections.jobs).length} jobs, ${Object.keys(log).length} log entries`);
+  }catch(e){ console.error(e); toast('Backup failed: ' + friendlyError(e)); }
+}
 function exportJobs(){
   const jobs = Object.values(state.jobs).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
   if(!jobs.length) return toast('No jobs to export yet');
@@ -1371,8 +1402,8 @@ function renderBoard(){
   return `<div class="wrap">
     <div class="top">${LOGO}${conn}
       ${!state.staff?`<button class="btn small ghost" data-act="staff-login">Staff sign-in</button>`:''}
-      ${state.staff?`<button class="btn small" data-act="export" title="Download all jobs as a spreadsheet (backup)">⬇ Export</button>`:''}
-      ${state.staff?`<button class="btn small" data-act="screens">TV screens</button>`:''}
+      ${state.staff?`<div class="hbtns"><button class="btn small" data-act="export" title="Spreadsheet or full backup">⬇ Export</button>
+        <button class="btn small" data-act="screens">TV screens</button></div>`:''}
       ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
     </div>
     ${state.staff ? `<div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
@@ -1557,6 +1588,8 @@ dlg.addEventListener('click', async e => {
   try{
     switch(b.dataset.sact){
       case 'close': dlg.close(); break;
+      case 'ex-csv': exportJobs(); break;
+      case 'ex-json': exportBackup(); break;
       case 'qr-copy': copyText(baseUrl(), dlg.querySelector('input.url')); break;
       case 'qr-share': navigator.share({title:SHOP_NAME, text:'Book your bike in or follow its progress', url:baseUrl()}).catch(()=>{}); break;
       case 'add': {
@@ -1625,7 +1658,7 @@ app.addEventListener('click', async e => {
     case 'rename': state.phase = 'profile'; render(); break;
     case 'signout': if(confirm('Sign out?')) B().signOut(); break;
     case 'screens': openScreensDialog(); break;
-    case 'export': exportJobs(); break;
+    case 'export': openExportDialog(); break;
     case 'qr': openQrDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
     case 'page': if(b.dataset.page === 'customers') showCustomers(); else if(b.dataset.page === 'activity') showActivity(); else { state.page = 'jobs'; render(); } break;
