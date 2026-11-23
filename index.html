@@ -256,7 +256,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.5.3";
+const APP_VERSION = "1.5.4";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -366,6 +366,7 @@ function friendlyError(err){
   if(c.includes('invalid-phone')) return 'That cell number doesn’t look right.';
   if(c.includes('invalid-verification-code')) return 'That code is wrong — check the SMS and try again.';
   if(c.includes('too-many-requests')) return 'Too many attempts. Please wait a few minutes.';
+  if(c.includes('quota-exceeded')) return 'Sign-in is busy right now. Please try again later, or ask Erik to book your bike in for you.';
   if(c.includes('invalid-action-code') || c.includes('expired-action-code')) return 'That sign-in link has expired or was already used. Request a new one.';
   if(c.includes('permission-denied')) return 'You don’t have access to do that.';
   if(c.includes('operation-not-allowed')) return 'This sign-in method isn’t switched on in Firebase yet.';
