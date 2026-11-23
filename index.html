@@ -331,7 +331,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.9.1";
+const APP_VERSION = "1.9.2";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -506,7 +506,7 @@ async function firebaseBackend(){
   const auth = A.getAuth(fb), db = F.getFirestore(fb), jobs = F.collection(db, 'jobs');
   auth.useDeviceLanguage();
   let verifier;
-  const toUser = u => u && {uid:u.uid, anon:u.isAnonymous, email:(u.email||'').toLowerCase(), phone:u.phoneNumber||''};
+  const toUser = u => u && {uid:u.uid, anon:u.isAnonymous, email:(u.email||'').toLowerCase(), verified:!!u.emailVerified, phone:u.phoneNumber||''};
   const listen = (q, cb, onState) => F.onSnapshot(q, {includeMetadataChanges:true}, snap => {
     const o = {}; snap.forEach(d => o[d.id] = {...d.data(), id:d.id});
     onState && onState(!snap.metadata.fromCache); cb(o);
@@ -1549,7 +1549,8 @@ async function onUser(user){
     return;
   }
   state.keys = user.anon ? [] : [user.email, user.phone].filter(Boolean);
-  state.staff = state.keys.some(k => STAFF_KEYS.includes(k));
+  // Staff = a proven email (or phone) on the staff list, same check as the database rules
+  state.staff = [user.verified !== false ? user.email : '', user.phone].filter(Boolean).some(k => STAFF_KEYS.includes(k));
   if(state.staff){
     try{ state.profile = await B().getProfile(user.uid); }catch(e){ console.error(e); state.profile = null; }
     if(!state.profile?.name){ state.phase = 'profile'; render(); return; }
