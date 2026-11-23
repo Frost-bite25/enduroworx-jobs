@@ -241,7 +241,9 @@
     /* cards side by side */
     .joblist,.custlist{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
     .joblist .job,.custlist .cust{margin-bottom:0}
-    .job{padding:16px 18px}
+    .job{padding:20px 22px;border-radius:16px}
+    .mason,.mcol{gap:24px} .joblist,.custlist{gap:22px}
+    .jl-card{padding:18px}
     .jhead h3{font-size:20px}
     .jfoot .btn.small{padding:7px 11px}
     ul.items li{padding:10px 0}
@@ -331,7 +333,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.9.2";
+const APP_VERSION = "1.9.3";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -946,6 +948,30 @@ function addPart(id){
   act(() => B().updateJob(id, {[`parts.${uid()}`]:part, ...touch()}));
 }
 
+/* ---------- Export all jobs to a spreadsheet (manual backup + invoicing) ---------- */
+function exportJobs(){
+  const jobs = Object.values(state.jobs).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  if(!jobs.length) return toast('No jobs to export yet');
+  const day = ms => ms ? new Date(ms).toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'}) : '';
+  const cols = ['Customer','Email','Cell','Bike','Status','Booked in','Wanted by','Collected','Invoiced',
+    'Work items','Work total','Parts used','Parts total','Total','Notes','Job link'];
+  const rows = jobs.map(j => {
+    const s = stats(j);
+    return [j.customer, jobEmail(j), showContact(jobCell(j)), j.bike, STATUSES[j.status]?.label || j.status,
+      day(j.createdAt), j.due || '', day(j.collectedAt), day(j.invoicedAt),
+      s.items.map(i => `${i.done ? '✓' : '○'} ${i.text}${i.cost ? ` (${i.cost})` : ''}`).join('; '), s.work,
+      s.parts.map(p => `${+p.qty||1}× ${p.name}${p.partNo ? ` [${p.partNo}]` : ''} @ ${p.price||0}`).join('; '), s.partsTotal,
+      s.est, j.notes || '', jobUrl(j.id)];
+  });
+  const cell = v => { const t = String(v ?? ''); return /[",\n;]/.test(t) ? `"${t.replace(/"/g,'""')}"` : t; };
+  const csv = '\ufeff' + [cols, ...rows].map(r => r.map(cell).join(',')).join('\r\n');
+  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  const a = Object.assign(document.createElement('a'), {href:url, download:`enduroworx-jobs-${day(Date.now())}.csv`});
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 5000);
+  toast(`Exported ${jobs.length} job${jobs.length===1?'':'s'}`);
+}
+
 /* ---------- Grid / List switch (staff) ---------- */
 function viewToggle(page){
   const v = state.view[page];
@@ -1142,6 +1168,7 @@ function renderBoard(){
       </div>` : '';
   return `<div class="wrap">
     <div class="top">${LOGO}${conn}
+      ${state.staff?`<button class="btn small" data-act="export" title="Download all jobs as a spreadsheet (backup)">⬇ Export</button>`:''}
       ${state.staff?`<button class="btn small" data-act="screens">TV screens</button>`:''}
       ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
     </div>
@@ -1362,6 +1389,7 @@ app.addEventListener('click', async e => {
     case 'rename': state.phase = 'profile'; render(); break;
     case 'signout': if(confirm('Sign out?')) B().signOut(); break;
     case 'screens': openScreensDialog(); break;
+    case 'export': exportJobs(); break;
     case 'qr': openQrDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
     case 'page': if(b.dataset.page === 'customers') showCustomers(); else { state.page = 'jobs'; render(); } break;
