@@ -183,8 +183,8 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.3.3";
-const APP_BUILD   = "2026-11-22";
+const APP_VERSION = "1.3.4";
+const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
 // Staff logins (Erik, plus anyone helping him). Email in lower case, cell numbers as +27…
@@ -348,6 +348,9 @@ async function firebaseBackend(){
     subscribeScreens: (cb, onErr) => listen(F.collection(db,'screens'), o => cb(Object.values(o)), (ok, err) => err && onErr && onErr(err)),
     addScreen: (token, d) => F.setDoc(F.doc(db,'screens',token), d),
     removeScreen: token => F.deleteDoc(F.doc(db,'screens',token)),
+    // Shared forecast: phones fetch it and save it here, the TV reads it with the jobs
+    subscribeWeather: cb => F.onSnapshot(F.doc(db,'meta','weather'), snap => cb(snap.exists() ? snap.data() : null), err => console.warn('Shared weather', err)),
+    saveWeather: w => F.setDoc(F.doc(db,'meta','weather'), w),
   };
 }
 
@@ -396,6 +399,8 @@ function demoBackend(){
     subscribeScreens(cb, onErr){ return sub(() => cb(Object.entries(read().screens).map(([id,s]) => ({...s, id})))); },
     async addScreen(token, s){ const d = read(); d.screens[token] = s; write(d); },
     async removeScreen(token){ const d = read(); delete d.screens[token]; write(d); },
+    subscribeWeather(cb){ return sub(() => cb(read().weather || null)); },
+    async saveWeather(w){ const d = read(); d.weather = w; write(d); },
   };
 }
 
@@ -430,16 +435,32 @@ async function loadWeather(){
       + `&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,precipitation_sum,wind_gusts_10m_max`
       + `&timezone=Africa%2FJohannesburg&forecast_days=7`;
     const j = await (await fetch(u)).json(), d = j.daily;
-    state.weather = d.time.map((t,i) => ({date:t, code:d.weather_code[i], max:Math.round(d.temperature_2m_max[i]),
-      min:Math.round(d.temperature_2m_min[i]), rainP:d.precipitation_probability_max[i]??0,
+    const days = d.time.map((t,i) => ({date:t, code:d.weather_code[i]??0, max:Math.round(d.temperature_2m_max[i]??0),
+      min:Math.round(d.temperature_2m_min[i]??0), rainP:d.precipitation_probability_max[i]??0,
       rain:d.precipitation_sum[i]??0, gust:d.wind_gusts_10m_max[i]??0}));
-    render();
+    state.weatherLocal = {days, fetchedAt:Date.now()};
+    setWeather(state.weatherLocal);
+    shareWeather();
   }catch(e){ console.warn('Weather unavailable', e); }
 }
+// Keep whichever forecast is newest: our own fetch or the shared copy in the database
+function setWeather(w){
+  if(!w?.days?.length) return;
+  if(!state.weather || (w.fetchedAt||0) > (state.weather.fetchedAt||0)){ state.weather = w; render(); }
+}
+// A signed-in phone saves its forecast for the TV, at most every 25 minutes
+function shareWeather(){
+  const w = state.weatherLocal;
+  if(VIEW === 'tv' || !w || !state.user || state.user.anon || !B()?.saveWeather) return;
+  if(w.fetchedAt - (state.sharedWeatherAt||0) < 25*60*1000) return;
+  state.sharedWeatherAt = w.fetchedAt;
+  B().saveWeather(w).catch(e => console.warn('Could not share weather', e));
+}
 function weatherStrip(){
-  if(!state.weather) return '';
   const today = new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'});
-  const days = state.weather.map(d => {
+  const list = (state.weather?.days || []).filter(d => d.date >= today);
+  if(!list.length) return '';
+  const days = list.map(d => {
     const dt = new Date(d.date+'T12:00'), dow = dt.getDay(), [vt,vc] = rideVerdict(d);
     const label = d.date === today ? 'Today' : dt.toLocaleDateString('en-ZA',{weekday:'short'});
     return `<div class="wday ${dow===0||dow===6?'we':''}" title="Gusts ${Math.round(d.gust)} km/h · ${d.rain.toFixed(1)} mm">
@@ -458,7 +479,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null,
+  tab:'open', drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'email', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -879,7 +900,12 @@ function render(){
   }
 }
 
+let unsubWeather = null;
 function startBoard(){
+  unsubWeather ||= B().subscribeWeather(w => {
+    state.sharedWeatherAt = Math.max(state.sharedWeatherAt||0, w?.fetchedAt||0);
+    setWeather(w); shareWeather();
+  });
   state.phase = 'board'; state.loaded = false; state.jobs = {}; render();
   unsubJobs && unsubJobs();
   const loadTimer = setTimeout(() => { if(!state.loaded){ state.loaded = true; state.err ||= 'still connecting…'; render(); } }, 10000);
@@ -918,6 +944,7 @@ async function onUser(user){
     if(LIVE && !SCREEN_TOKEN){ state.err = 'This screen link is incomplete. Create one in the app under “TV screens”.'; render(); return; }
     try{ await B().screenSignIn(SCREEN_TOKEN); }
     catch(err){ console.error(err); state.err = 'Could not start this screen: ' + friendlyError(err); render(); return; }
+    B().subscribeWeather(setWeather);
     B().subscribeJobs({open:true}, jobs => { state.err = null; state.jobs = jobs; state.loaded = true; render(); },
       (online, err) => {
         state.online = online;

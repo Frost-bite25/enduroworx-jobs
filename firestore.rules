@@ -39,6 +39,12 @@ service cloud.firestore {
       allow read, write: if isStaff();
     }
 
+    // Riding forecast: any signed-in person's phone may refresh it, everyone signed in (incl. TV screens) can read it
+    match /meta/weather {
+      allow read:  if signedIn();
+      allow write: if isCustomer() && request.resource.data.keys().hasOnly(['days', 'fetchedAt']);
+    }
+
     match /screenSessions/{uid} {
       allow read, write: if signedIn() && request.auth.uid == uid;
     }
