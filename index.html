@@ -92,6 +92,45 @@
   .ptotals{padding:8px 12px 10px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);text-align:right}
   .ptotals b{color:var(--text)}
   .ptag{display:block;font-size:11px;color:#9fb4ff;margin-top:1px}
+  .viewtog{flex:0 0 auto} .viewtog button{padding:8px 12px}
+  .muted{color:var(--muted)}
+  /* jobs list */
+  .jlist{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .jl-head,.jl-row{display:grid;grid-template-columns:minmax(0,2.2fr) minmax(0,1.5fr) minmax(0,1.1fr) minmax(0,1fr) minmax(0,.8fr) minmax(0,.9fr) 90px;gap:12px;align-items:center;padding:10px 14px}
+  .jl-head{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--panel2)}
+  .jl-row{border-top:1px solid var(--line);cursor:pointer;border-left:4px solid var(--booked)}
+  .jl-row:hover{background:#202024}
+  .jl-row.s-in_progress{border-left-color:var(--progress)} .jl-row.s-waiting_parts{border-left-color:var(--parts)}
+  .jl-row.s-ready{border-left-color:var(--ready)} .jl-row.s-collected{border-left-color:var(--collected)} .jl-row.s-invoiced{border-left-color:var(--invoiced)}
+  .jl-row.exp{background:#1f2230}
+  .jl-name b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .jl-name span{display:block;font-size:13px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .jl-status select{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:13px}
+  .jl-prog{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)} .jl-prog .track{flex:1}
+  .jl-due,.jl-booked,.jl-est{font-size:14px;white-space:nowrap} .jl-booked{color:var(--muted)}
+  .jl-est{font-weight:600}
+  .jl-flags{display:flex;gap:8px;justify-content:flex-end;align-items:center;font-size:13px;white-space:nowrap}
+  .fl-new{background:#f5c542;color:#2a1d00;border-radius:6px;padding:1px 6px;font-weight:700} .fl-parts{color:#9fb4ff}
+  .chev{color:var(--muted)}
+  .jl-card{padding:12px;border-top:1px solid var(--line);background:var(--bg)} .jl-card .job{margin:0}
+  /* customers list */
+  .clist{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .cl-head,.cl-row{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1.8fr) minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:center;padding:9px 14px}
+  .cl-head{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;background:var(--panel2)}
+  .cl-row{border-top:1px solid var(--line);font-size:14px}
+  .cl-name{display:flex;gap:6px;align-items:center;flex-wrap:wrap} .cl-name b{margin-right:2px}
+  .cl-email,.cl-cell{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .cl-email a,.cl-cell a{color:var(--text);text-decoration:none}
+  .cl-acts{display:flex;gap:6px;justify-content:flex-end}
+  @media (max-width: 759px){
+    .jl-head,.cl-head{display:none}
+    .jl-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name status" "prog flags" "due est";gap:6px 10px}
+    .jl-name{grid-area:name} .jl-status{grid-area:status} .jl-prog{grid-area:prog} .jl-due{grid-area:due;font-size:13px}
+    .jl-est{grid-area:est;text-align:right} .jl-booked{display:none} .jl-flags{grid-area:flags}
+    .jl-card{padding:8px}
+    .cl-row{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"name acts" "email email" "cell jobs";gap:4px 10px}
+    .cl-name{grid-area:name} .cl-acts{grid-area:acts} .cl-email{grid-area:email;font-size:13px} .cl-cell{grid-area:cell;font-size:13px} .cl-jobs{grid-area:jobs;font-size:13px;text-align:right}
+  }
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -153,6 +192,9 @@
   .chip span{color:var(--text);font-weight:700;margin-left:2px}
   .chip.on{background:var(--brand);border-color:var(--brand);color:#fff} .chip.on span{color:#fff}
   .spill.mini{margin-left:0;font-size:11px;padding:2px 7px}
+  .spill.mini.s-in_progress{background:var(--progress);color:#1a1200} .spill.mini.s-waiting_parts{background:var(--parts);color:#160926}
+  .spill.mini.s-ready{background:var(--ready);color:#04160b} .spill.mini.s-collected{background:var(--collected);color:#0b0d10}
+  .spill.mini.s-invoiced{background:var(--invoiced);color:#04201d}
   .filterbar{display:flex;align-items:center;gap:8px;background:#11183a;border:1px solid #2a3a8a;border-radius:10px;padding:8px 12px;font-size:14px;margin-bottom:12px}
   .welcome{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:16px;text-align:center}
   .welcome h2{margin:0 0 6px;font-size:20px} .welcome p{color:var(--muted);margin:0 0 14px;font-size:14px;line-height:1.5}
@@ -289,7 +331,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.8.0";
+const APP_VERSION = "1.9.0";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -661,7 +703,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', partsOpen:new Set(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
+  tab:'open', partsOpen:new Set(), expanded:new Set(), view:(() => { try { return {jobs:'grid', customers:'grid', ...JSON.parse(localStorage.getItem('jobboard.view'))}; } catch { return {jobs:'grid', customers:'grid'}; } })(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'email', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -865,6 +907,31 @@ function addPart(id){
   act(() => B().updateJob(id, {[`parts.${uid()}`]:part, ...touch()}));
 }
 
+/* ---------- Grid / List switch (staff) ---------- */
+function viewToggle(page){
+  const v = state.view[page];
+  return `<div class="tabs viewtog" role="group" aria-label="Layout">
+    <button data-act="view" data-page="${page}" data-v="grid" class="${v==='grid'?'on':''}" title="Grid">▦ Grid</button>
+    <button data-act="view" data-page="${page}" data-v="list" class="${v==='list'?'on':''}" title="List">☰ List</button></div>`;
+}
+// One compact row per job; tap a row to open the full card underneath
+function jobList(jobs){
+  const rows = jobs.map(job => {
+    const s = stats(job), id = job.id, open = state.expanded.has(id), nr = newReqs(job).length;
+    return `<div class="jl-row s-${esc(job.status)} ${open?'exp':''}" data-act="expand" data-id="${id}">
+      <div class="jl-name"><b>${esc(job.customer)}</b><span>${esc(job.bike||'')}</span></div>
+      <div class="jl-status"><select data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
+        `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
+      <div class="jl-prog"><div class="track"><i style="width:${s.pct}%"></i></div><span>${s.done}/${s.total}</span></div>
+      <div class="jl-due due ${isOpen(job)?dueClass(job.due):''}">${job.due ? esc(fmtDate(job.due)) : '<span class="muted">—</span>'}</div>
+      <div class="jl-booked">${esc(ago(job.createdAt))}</div>
+      <div class="jl-est">${s.est ? money(s.est) : '<span class="muted">TBC</span>'}</div>
+      <div class="jl-flags">${nr?`<span class="fl-new" title="New customer requests">🔔 ${nr}</span>`:''}${s.parts.length?`<span class="fl-parts" title="Parts used">🔩 ${s.parts.length}</span>`:''}<span class="chev">${open?'▴':'▾'}</span></div>
+    </div>${open ? `<div class="jl-card">${jobCard(job)}</div>` : ''}`;
+  }).join('');
+  return `<div class="jlist"><div class="jl-head"><div>Customer · Bike</div><div>Status</div><div>Progress</div><div>Wanted by</div><div>Booked</div><div>Estimate</div><div></div></div>${rows}</div>`;
+}
+
 /* ---------- Customers (staff) ---------- */
 const digits = s => String(s||'').replace(/\D/g,'');
 // Customers are built from the jobs themselves (email is the reference), plus anyone who registered under the old sign-in
@@ -913,12 +980,24 @@ function renderCustomers(){
   const rank = c => c.keys.some(k => STAFF_KEYS.includes(k)) ? 1 : 0;
   list.sort((a,b) => (rank(a) - rank(b)) || (a.name||'').localeCompare(b.name||''));
   const regCount = tagged.length;
+  const asList = state.view.customers === 'list';
   const rows = list.map(c => {
     const js = jobsFor(c.keys), openJobs = js.filter(isOpen), open = openJobs.length;
     const pills = [...new Set(openJobs.map(j => j.status))].map(st => `<span class="spill mini s-${st}">${esc(STATUSES[st]?.label||st)}</span>`).join('');
     const isStaffRow = c.keys.some(k => STAFF_KEYS.includes(k));
     const ph = c.contactPhone, wa = digits(ph);
     const filterKey = esc(c.keys.join('|'));
+    const cellShown = ph ? ('0' + digits(ph).slice(2)).replace(/^(\d{3})(\d{3})(\d+)$/,'$1 $2 $3') : '';
+    if(asList) return `<div class="cl-row">
+      <div class="cl-name"><b>${esc(c.name || 'No name yet')}</b>${pills}</div>
+      <div class="cl-email">${c.email ? `<a href="mailto:${esc(c.email)}">${esc(c.email)}</a>` : '<span class="muted">—</span>'}</div>
+      <div class="cl-cell">${ph ? `<a href="tel:${esc(ph)}">${esc(cellShown)}</a>` : '<span class="muted">—</span>'}</div>
+      <div class="cl-jobs">${js.length ? `<b>${open}</b> open · ${js.length} total` : '<span class="muted">No jobs</span>'}</div>
+      <div class="cl-acts">
+        ${ph?`<a class="btn small wa" href="${esc(waLink(ph, `Hi ${firstName(c.name)}, `))}" target="_blank" rel="noopener" title="WhatsApp">${WA_ICON}</a>`:''}
+        ${js.length?`<button class="btn small" data-act="cust-jobs" data-keys="${filterKey}" data-name="${esc(c.name||'')}">Jobs</button>`:''}
+        <button class="btn small" data-act="cust-book" data-email="${esc(c.email||'')}" data-cell="${esc(c.contactPhone||'')}" data-name="${esc(c.name||'')}">+ Book</button>
+      </div></div>`;
     return `<div class="cust">
       <div class="chead"><b>${esc(c.name || 'No name yet')}</b>
         ${isStaffRow?'<span class="tag">STAFF</span>':''}${pills}</div>
@@ -937,7 +1016,7 @@ function renderCustomers(){
     ${chips}
     ${state.usersErr?`<div class="banner">Couldn’t load customers: ${esc(state.usersErr)}</div>`:''}
     <div class="cmeta" style="margin:0 0 10px">${regCount} customer${regCount===1?'':'s'}</div>
-    ${rows ? `<div class="custlist">${rows}</div>` : `<div class="empty">${q ? 'No customers match your search.' : cf !== 'all' ? 'No customers with that status.' : 'No customers yet. They appear here once they book a bike in.'}</div>`}`;
+    ${rows ? (asList ? `<div class="clist"><div class="cl-head"><div>Customer</div><div>Email</div><div>Cell</div><div>Jobs</div><div></div></div>${rows}</div>` : `<div class="custlist">${rows}</div>`) : `<div class="empty">${q ? 'No customers match your search.' : cf !== 'all' ? 'No customers with that status.' : 'No customers yet. They appear here once they book a bike in.'}</div>`}`;
 }
 let unsubUsers = null;
 function showCustomers(){
@@ -1039,7 +1118,7 @@ function renderBoard(){
       <button class="btn primary" data-act="new-job">+ Book my bike in</button></div>` : ''}
     ${weatherStrip()}
     ${state.err?`<div class="banner">Problem reaching the database: ${esc(state.err)}</div>`:''}
-    ${state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}</div>${renderCustomers()}` : custEmpty ? '' : `
+    ${state.staff && state.page==='customers' ? `<div class="bar2">${pageTabs}<span class="spacer"></span>${viewToggle('customers')}</div>${renderCustomers()}` : custEmpty ? '' : `
     ${F?`<div class="filterbar">Showing jobs for <b>${esc(F.name||'this customer')}</b><span class="spacer"></span><button class="btn small ghost" data-act="clear-filter">Show all</button></div>`:''}
     <div class="bar2">
       ${pageTabs}
@@ -1050,11 +1129,12 @@ function renderBoard(){
       </div>
       ${jobChips}
       <span class="spacer"></span>
+      ${state.staff ? viewToggle('jobs') : ''}
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
     </div>
     ${state.tab === 'toinvoice' && toInvoice.length ? `<div class="invbar">⚠️ ${toInvoice.length} finished job${toInvoice.length===1?'':'s'} not invoiced yet. Tap <b>Mark invoiced</b> once the invoice has gone out.</div>` : ''}
     ${!state.loaded ? `<div class="empty">Loading…</div>`
-      : list.length ? masonry(list)
+      : list.length ? (state.staff && state.view.jobs === 'list' ? jobList(list) : masonry(list))
       : `<div class="empty">${state.tab==='toinvoice' ? 'Nothing waiting to be invoiced. 👍' : state.tab!=='open' ? (state.staff ? 'No invoiced jobs yet.' : 'No finished jobs yet.') : js !== 'all' ? 'No jobs with that status.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'Your bikes will show here once booked in.'}</div>`}`}
@@ -1266,6 +1346,8 @@ app.addEventListener('click', async e => {
       if(confirm(`Remove "${it.text}"?`)) act(() => B().updateJob(id, {[`items.${item}`]:B().del(), ...touch()})); break;
     case 'collected': act(() => B().updateJob(id, {status:'collected', collectedAt:Date.now(), ...touch()})); break;
     case 'add-part': addPart(id); break;
+    case 'view': state.view[b.dataset.page] = b.dataset.v; localStorage.setItem('jobboard.view', JSON.stringify(state.view)); render(); break;
+    case 'expand': state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); break;
     case 'part-name': { const pt = job.parts[b.dataset.part]; const v = prompt('Part name', pt.name); if(v==null || !v.trim()) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.name`]:v.trim(), ...touch()})); break; }
     case 'part-qty': { const pt = job.parts[b.dataset.part]; const v = prompt('Quantity', pt.qty||1); if(v==null) return;
