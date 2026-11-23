@@ -333,7 +333,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "1.9.3";
+const APP_VERSION = "1.9.4";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -1223,17 +1223,24 @@ function openJobDialog(job, preset){
     : ''}
     <label class="f">Bike</label><input class="in" name="bike" placeholder="e.g. KTM 300 EXC TPI 2024" value="${esc(job.bike||'')}">
     <label class="f">Wanted by (optional)</label><input class="in" name="due" type="date" value="${esc(job.due||'')}">
-    <label class="f">Notes</label><textarea class="in" name="notes" placeholder="Anything ${staff?'':'Erik '}should know">${esc(job.notes||'')}</textarea>
+    <label class="f">Notes</label><textarea class="in" name="notes" placeholder="${staff?'Notes about the bike or job':'Anything Erik should know'}">${esc(job.notes||'')}</textarea>
     ${isNew?`<label class="f">Work to be done</label>
       <textarea class="in" name="items" placeholder="One item per line, e.g.&#10;Oil and filter change${staff?' - 850':''}&#10;Chain and sprockets${staff?' - 2400':''}&#10;Fork seals leaking"></textarea>
       <div class="hint">${staff?'Add a cost after a dash if you know it. ':''}More items can be added later.</div>`:''}
     <div class="dfoot">
+      ${staff && !isNew ? `<button class="btn ghost danger" value="delete" formnovalidate style="margin-right:auto">Delete job</button>` : ''}
       <button class="btn" value="cancel" formnovalidate>Cancel</button>
       <button class="btn primary" value="save">${isNew?'Book in':'Save'}</button>
     </div>
   </form>`;
   const form = dlg.querySelector('form');
   form.onsubmit = async e => {
+    if(e.submitter?.value === 'delete'){
+      e.preventDefault();
+      if(!confirm(`Delete ${job.customer}'s job (${job.bike || 'bike'}) completely?\n\nThis removes all its work items, parts and history and can't be undone.`)) return;
+      try{ await B().removeJob(job.id); dlg.close(); toast('Job deleted'); }catch(err){ toast('Could not delete: ' + friendlyError(err)); }
+      return;
+    }
     if(e.submitter?.value !== 'save') return;
     e.preventDefault();
     const f = Object.fromEntries(new FormData(form));
