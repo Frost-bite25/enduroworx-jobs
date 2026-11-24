@@ -208,10 +208,9 @@
   .tag.grey{background:var(--panel2);color:var(--muted);border:1px solid var(--line)}
   .cmeta{font-size:13px;color:var(--muted);margin-top:3px}
   .clinks{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px}
-  .hbtns{display:flex;flex-direction:column;gap:6px} .hbtns .btn{justify-content:center;width:100%} .hbtns .conn{justify-content:center}
   .qrtile{display:flex;align-items:center;gap:8px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:5px 10px 5px 5px;font-size:12px;line-height:1.2;text-align:left;color:var(--muted)}
   .qrtile img{width:38px;height:38px;background:#fff;padding:2px;border-radius:5px;image-rendering:pixelated}
-  @media (max-width: 759px){ .qrtile{padding:4px} .qrtile span{display:none} .qrtile img{width:32px;height:32px}
+  @media (max-width: 759px){
     .top{flex-wrap:nowrap;gap:8px} .top .logo{font-size:21px} .top .btn.small{padding:6px 9px;white-space:nowrap} .conn{white-space:nowrap} }
   .qrdlg{text-align:center}
   .qrbig{display:block;width:min(70vw,380px);height:auto;margin:6px auto 14px;background:#fff;padding:10px;border-radius:14px;image-rendering:pixelated}
@@ -253,12 +252,29 @@
   .v-good{background:#173d27;color:#5fe39a} .v-ok{background:#3d3215;color:#f5c45a}
   .v-mud{background:#3b2a1a;color:#e0a46a} .v-bad{background:#40191a;color:#ff7b7b}
 
+  /* compact forecast strip (phone, iPad, laptop): 3 short lines per day, verdict as coloured text */
+  .wxc{gap:6px;margin-bottom:12px}
+  .wxc .wday{min-width:62px;padding:5px 6px 4px;border-radius:9px;display:grid;grid-template-columns:auto auto;justify-content:center;align-items:center;gap:0 5px}
+  .wxc .wd{font-size:11px} .wxc .wi{font-size:16px;margin:0}
+  .wxc .wt{grid-column:1/-1;font-size:13px} .wxc .wt span{margin-left:3px}
+  .wxc .wr{display:none}
+  .wxc .wv{grid-column:1/-1;background:none;padding:0;margin-top:1px;font-size:10.5px;white-space:nowrap}
+  .wxh{font-size:11px;margin-bottom:4px}
+  /* header right: small Export + status, bigger QR */
+  .hright{display:flex;align-items:center;gap:10px;margin-left:auto}
+  .hbtns{display:flex;flex-direction:column;align-items:center;gap:5px}
+  .hbtns .btn.small.exp{padding:5px 11px;font-size:13px;gap:5px;border-radius:8px}
+  .hbtns .btn.small.exp svg{width:13px;height:13px}
+  .hbtns .conn{font-size:11.5px}
+  .qrtile{padding:4px;border-radius:10px} .qrtile span{display:none}
+  .qrtile img{width:54px;height:54px}
+
   /* ---------- iPad / tablet & laptop ---------- */
   @media (min-width: 760px){
     .wrap{max-width:none;padding:max(22px, env(safe-area-inset-top)) 28px 80px}
     .top .logo{font-size:32px}
-    .qrtile img{width:56px;height:56px}
-    .qrtile{font-size:13px}
+    .qrtile img{width:64px;height:64px}
+    .wxc .wday{flex:1 1 0;min-width:0;padding:6px 6px 5px} .wxc .wd{font-size:12px} .wxc .wi{font-size:18px} .wxc .wt{font-size:14px} .wxc .wv{font-size:11.5px;padding:0}
     .who{font-size:14px}
     .btn{padding:10px 16px;font-size:15px} .btn.small{padding:8px 13px;font-size:14px}
     .tabs button{padding:10px 18px;font-size:15px}
@@ -285,12 +301,17 @@
   @media (min-width: 1180px){
     .custlist{grid-template-columns:repeat(3,minmax(0,1fr))}
     /* compact forecast: one line per day plus the verdict */
-    .wday{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 8px;padding:7px 6px}
+    .wday:not(.wxc .wday){display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:0 8px;padding:7px 6px}
     .wd{font-size:13px} .wi{font-size:24px;margin:0} .wt{font-size:15px} .wr{font-size:12px}
     .wv{flex-basis:100%;margin-top:4px}
     .wxh{margin-bottom:4px}
     .who{margin-bottom:10px}
     .bar2 .chips{flex:0 1 auto;order:0}
+  }
+  /* MacBook: each day on one line, filling its block */
+  @media (min-width: 1400px){
+    .wxc .wday{grid-template-columns:auto auto auto auto;justify-content:space-evenly;gap:0 5px;padding:6px 6px}
+    .wxc .wt,.wxc .wv{grid-column:auto;margin:0} .wxc .wd{font-size:13px} .wxc .wi{font-size:19px} .wxc .wt{font-size:15px} .wxc .wv{font-size:12px}
   }
   @media (min-width: 1600px){
     .wrap{padding-left:36px;padding-right:36px}
@@ -361,7 +382,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.4.2";
+const APP_VERSION = "2.4.3";
 const APP_BUILD   = "2026-11-23";
 const CURRENCY  = "R";
 
@@ -747,7 +768,7 @@ function weatherStrip(){
       <div class="wv v-${vc}">${vt}</div></div>`;
   }).join('');
   return VIEW === 'tv' ? `<div class="wx">${days}</div>`
-    : `<div class="wxh">${esc(WEATHER.place)} riding forecast</div><div class="wx">${days}</div>`;
+    : `<div class="wxh">${esc(WEATHER.place)} riding forecast</div><div class="wx wxc">${days}</div>`;
 }
 
 /* =====================================================================
@@ -1408,8 +1429,8 @@ function renderBoard(){
   return `<div class="wrap">
     <div class="top">${LOGO}${state.staff?'':conn}
       ${!state.staff?`<button class="btn small ghost" data-act="staff-login">Staff sign-in</button>`:''}
-      ${state.staff?`<div class="hbtns"><button class="btn small" data-act="export" title="Spreadsheet or full backup">⬇ Export</button>${conn}</div>`:''}
-      ${state.staff && makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""><span>Customer<br>QR code</span></button>`:''}
+      ${state.staff?`<div class="hright"><div class="hbtns"><button class="btn small exp" data-act="export" title="Spreadsheet or full backup"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10"/></svg>Export</button>${conn}</div>
+        ${makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""></button>`:''}</div>`:''}
     </div>
     ${state.staff ? `<div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
       <span class="tag">STAFF</span>
