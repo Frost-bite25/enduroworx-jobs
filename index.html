@@ -180,6 +180,11 @@
   .xlist{position:absolute;bottom:calc(100% + 6px);left:0;z-index:40;min-width:220px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:5px;box-shadow:0 10px 30px #000a;display:flex;flex-direction:column}
   .xlist button{background:none;border:0;color:var(--text);text-align:left;padding:10px 12px;border-radius:7px;font-size:14px;cursor:pointer}
   .xlist button:hover,.xlist button:focus{background:var(--panel);outline:none}
+  .notified{font-size:12px;color:#7fd99a;margin:6px 0 0}
+  .notyet{display:block;width:100%;text-align:left;margin:8px 0 0;background:#3a2a0c;border:1px solid #7a5a14;color:#f5c45a;border-radius:8px;padding:7px 10px;font-size:13px;cursor:pointer}
+  .notyet u{color:#ffd77a}
+  .nmsg{width:100%;min-height:150px;resize:vertical;font:inherit;font-size:14px;line-height:1.45;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+  .btn.wa{background:#1f7a3f;border-color:#25a457;color:#fff;font-weight:600}
   .accbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px} .accbtns .btn{flex:1 1 140px;justify-content:center}
   .invbar .qbbtn{margin-left:auto;display:inline-flex;margin-top:6px;background:#1a2a1a;border-color:#2f6b3a;color:#bff0c8}
   .qblist{list-style:none;margin:0 0 12px;padding:0;max-height:45vh;overflow:auto}
@@ -449,7 +454,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.8.0";
+const APP_VERSION = "2.9.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -494,6 +499,7 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.9.0","24 Nov","One-tap customer updates on WhatsApp or email when a job is booked in, waiting for parts or ready"],
   ["2.8.0","24 Nov","Jobs, Customers and Activity now a clear page bar with icons"],
   ["2.7.4","24 Nov","Clearer \"Wanted by\" date with quick picks (Tomorrow, In a week…)"],
   ["2.7.3","24 Nov","Export menu on finished jobs: email, QuickBooks, print, spreadsheet"],
@@ -1046,6 +1052,7 @@ function jobCard(job){
     </div>
     ${staff && newReqs(job).length ? `<div class="reqbar"><span>🔔 <b>${newReqs(job).length} new request${newReqs(job).length===1?'':'s'}</b> from ${esc(firstName(job.customer))}</span>
       <button class="btn small" data-act="seen-all" data-id="${id}">Got it</button></div>` : ''}
+    ${notifyLine(job)}
     ${staff && job.qbExportedAt && TO_INVOICE.includes(job.status) ? `<div class="accsent">In QuickBooks CSV ${esc(fmtStamp(job.qbExportedAt))}${job.qbExportedBy ? ` by ${esc(job.qbExportedBy)}` : ''}</div>` : ''}
     ${staff && job.sentToAccountsAt && TO_INVOICE.includes(job.status) ? `<div class="accsent">Sent to accounts ${esc(fmtStamp(job.sentToAccountsAt))}${job.sentToAccountsBy ? ` by ${esc(job.sentToAccountsBy)}` : ''}</div>` : ''}
     ${job.notes?`<p class="notes">${esc(job.notes)}</p>`:''}
@@ -1080,7 +1087,7 @@ function jobCard(job){
     ${historyPanel(job)}
     <div class="jfoot">
       ${staff
-        ? (phoneForJob(job) ? `<a class="btn small wa" href="${esc(waLink(phoneForJob(job), waMessageFor(job)))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</a>` : '')
+        ? (phoneForJob(job) ? `<button class="btn small wa" data-act="notify" data-id="${id}">${WA_ICON} WhatsApp ${esc(firstName(job.customer))}</button>` : '')
         : (WORKSHOP_WHATSAPP ? `<a class="btn small wa" href="${esc(waToWorkshop(job))}" target="_blank" rel="noopener">${WA_ICON} WhatsApp Erik</a>` : '')}
       <button class="btn small ghost" data-act="edit-job" data-id="${id}">Edit</button>
       <button class="btn small ghost" data-act="copy-job-link" data-id="${id}" title="Copy this job's private link">Link</button>
@@ -1287,6 +1294,7 @@ function describeChange(job, patch){
   for(const [k, v] of Object.entries(patch)){
     if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo','qbExportedBy'].includes(k)) continue;
     if(k === 'qbExportedAt'){ out.push('Exported to QuickBooks CSV'); continue; }
+    if(k === 'lastNotified'){ out.push(`Told customer “${STATUSES[v.status]?.label || v.status}” via ${v.via}`); continue; }
     if(k === 'sentToAccountsAt'){ out.push(`Sent to accounts${patch.sentToAccountsBy ? ` (${patch.sentToAccountsBy})` : ''}`); continue; }
     const del = v && v.__del; let m;
     if(k === 'status'){ if(v !== job.status) out.push(`Status: ${lab(job.status)} → ${lab(v)}`); }
@@ -1551,6 +1559,42 @@ function waMessageFor(job){
       return `${hi}, thanks for booking ${bike} in with us.${s.items.length ? ` Work requested: ${s.items.map(i => i.text).join(', ')}.` : ''}${track}${sign}`;
   }
 }
+/* ---------- Tell the customer (one tap: WhatsApp or email from Erik's own app) ---------- */
+const NOTIFY_ON = ['booked', 'waiting_parts', 'ready'];
+const notifiedNow = j => j.lastNotified && j.lastNotified.status === j.status;
+function openNotify(job){
+  const cell = jobCell(job) || phoneForJob(job), email = jobEmail(job), label = STATUSES[job.status]?.label || job.status;
+  dlg.dataset.kind = 'notify';
+  dlg.innerHTML = `<div class="dbody">
+    <h2>Let ${esc(firstName(job.customer))} know?</h2>
+    <p class="hint" style="margin-top:0">${esc(job.customer||'')}${jobNoOf(job) ? ` · ${jobNoOf(job)}` : ''} is now <b>${esc(label)}</b>. Check the message, then send it from your own WhatsApp.</p>
+    <textarea class="in nmsg" rows="8">${esc(waMessageFor(job))}</textarea>
+    <div class="accbtns">
+      ${cell ? `<button class="btn wa" data-a="wa">${WA_ICON} Send on WhatsApp</button>` : ''}
+      ${email ? `<button class="btn" data-a="email">✉️ Email ${esc(email)}</button>` : ''}
+    </div>
+    ${!cell ? `<div class="hint">No cell number on this job, so WhatsApp isn't available. Add one with Edit.</div>` : ''}
+    <div class="dfoot"><button class="btn" data-a="skip">Not now</button></div>
+  </div>`;
+  const done = via => act(() => B().updateJob(job.id, {lastNotified:{status:job.status, t:Date.now(), by:myName(), via}, ...touch()}));
+  dlg.querySelector('.dbody').onclick = ev => {
+    const b = ev.target.closest('[data-a]'); if(!b) return;
+    const text = dlg.querySelector('.nmsg').value.trim();
+    if(b.dataset.a === 'wa'){ window.open(waLink(cell, text), '_blank'); done('WhatsApp'); dlg.close(); }
+    else if(b.dataset.a === 'email'){
+      location.href = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(`Your ${job.bike || 'bike'}${jobNoOf(job) ? ` – job ${jobNoOf(job)}` : ''} – ${label}`)}&body=${encodeURIComponent(text)}`;
+      done('email'); dlg.close();
+    }
+    else dlg.close();
+  };
+  dlg.showModal();
+}
+function notifyLine(job){
+  if(!state.staff || !NOTIFY_ON.includes(job.status) || !(jobCell(job) || jobEmail(job))) return '';
+  if(notifiedNow(job)){ const n = job.lastNotified;
+    return `<div class="notified">✓ Customer told “${esc(STATUSES[n.status]?.label || n.status)}” · ${esc(fmtStamp(n.t))} via ${esc(n.via)}${n.by ? ` · ${esc(n.by)}` : ''}</div>`; }
+  return `<button class="notyet" data-act="notify" data-id="${job.id}">⚠ Customer not told yet that it's “${esc(STATUSES[job.status]?.label || job.status)}” · <u>Tell them</u></button>`;
+}
 const waToWorkshop = job => waLink(WORKSHOP_WHATSAPP,
   `Hi Erik, it's ${job.customer || myName()} about my ${job.bike || 'bike'}${job.createdAt ? ` (booked in ${new Date(job.createdAt).toLocaleDateString('en-ZA',{day:'numeric',month:'short'})})` : ''}. `);
 
@@ -1753,6 +1797,10 @@ function openJobDialog(job, preset){
         const newId = await B().addJob(nj);
         if(!staff){ rememberJob(newId); dlg.close(); toast(`Booked in!${nj.jobNo ? ` Your job number is ${JOB_PREFIX}-${nj.jobNo}.` : ''} This phone will remember your bike.`); startBoard(); return; }
         if(nj.jobNo) toast(`Job ${JOB_PREFIX}-${nj.jobNo} booked in`);
+        dlg.close();
+        const created = {...nj, id:newId};
+        if(jobCell(created) || jobEmail(created)) setTimeout(() => openNotify(state.jobs[newId] || created), 150);
+        return;
       } else {
         await B().updateJob(job.id, data);
       }
@@ -2134,6 +2182,7 @@ app.addEventListener('click', async e => {
     case 'accounts': b.closest('details')?.removeAttribute('open'); openAccountsDialog(job); break;
     case 'xport': b.closest('details')?.removeAttribute('open'); accountsAction(job, b.dataset.k); break;
     case 'qb-csv': openQbDialog(); break;
+    case 'notify': openNotify(job); break;
     case 'reopen': act(() => B().updateJob(id, {status:'ready', ...touch()})); break;
     case 'del-job':
       if(confirm(`Delete ${job.customer}'s job permanently? This can't be undone.`)) act(() => B().removeJob(id)); break;
@@ -2143,7 +2192,12 @@ app.addEventListener('change', e => {
   const el = e.target, {act:a, id, item} = el.dataset;
   if(a === 'tick') act(() => B().updateJob(id, {[`items.${item}.done`]:el.checked, [`items.${item}.doneBy`]:el.checked?myName():'',
     [`items.${item}.seen`]:true, ...touch()}));
-  if(a === 'status') act(() => B().updateJob(id, {status:el.value, ...(el.value==='invoiced'?{invoicedAt:Date.now()}:{}), ...(el.value==='collected'?{collectedAt:Date.now()}:{}), ...touch()}));
+  if(a === 'status'){
+    const st = el.value;
+    act(() => B().updateJob(id, {status:st, ...(st==='invoiced'?{invoicedAt:Date.now()}:{}), ...(st==='collected'?{collectedAt:Date.now()}:{}), ...touch()}));
+    const j = state.jobs[id];
+    if(state.staff && j && NOTIFY_ON.includes(st) && (jobCell(j) || jobEmail(j))) setTimeout(() => openNotify({...j, status:st}), 150);
+  }
 });
 app.addEventListener('toggle', e => {
   const d = e.target; if(!d.matches?.('details.parts')) return;
