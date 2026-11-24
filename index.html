@@ -419,7 +419,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.6.0";
+const APP_VERSION = "2.6.1";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -457,6 +457,7 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.6.1","24 Nov","Customers can read notes but not add or delete them"],
   ["2.6.0","24 Nov","Notes section on every job card"],
   ["2.5.0","24 Nov","Job numbers (EW-1001…) on every job; Send to accounts for finished jobs"],
   ["2.4.6","24 Nov","Booking form on iPhone scrolls up and down only, page behind stays still"],
@@ -1054,21 +1055,23 @@ function jobCard(job){
 const jobNotes = job => Object.entries(job.notesLog || {}).map(([nid, n]) => ({id:nid, ...n})).sort((a,b) => (a.t||0) - (b.t||0));
 function notesPanel(job){
   const id = job.id, notes = jobNotes(job), open = state.notesOpen.has(id), staff = state.staff;
+  if(!staff && !notes.length) return '';           // customers only see notes, never add them
   const last = notes[notes.length - 1];
   return `<details class="parts notesp" data-id="${id}" ${open?'open':''}>
     <summary>📝 Notes <span class="psum">${notes.length ? `<b>${notes.length}</b> · last ${esc(ago(last.t))}` : 'none yet'}</span></summary>
     ${notes.length ? `<ul class="nlist">${notes.map(n => `<li class="${n.staff===false?'ncust':''}">
         <div class="ntext">${esc(n.text)}</div>
         <div class="nmeta">${esc(n.by||'')}${n.staff===false?' · customer':''} · ${esc(fmtStamp(n.t))}
-          ${staff || n.byUid === state.user?.uid ? `<button class="nx" data-act="del-note" data-id="${id}" data-note="${n.id}" aria-label="Delete note">Delete</button>` : ''}</div>
+          ${staff ? `<button class="nx" data-act="del-note" data-id="${id}" data-note="${n.id}" aria-label="Delete note">Delete</button>` : ''}</div>
       </li>`).join('')}</ul>` : ''}
-    <div class="addrow nadd">
-      <textarea class="t" rows="2" data-draft="n:${id}" placeholder="${staff ? 'Add a note… (the customer can see notes)' : 'Add a note for Erik…'}">${esc(state.drafts['n:'+id]||'')}</textarea>
+    ${staff ? `<div class="addrow nadd">
+      <textarea class="t" rows="2" data-draft="n:${id}" placeholder="Add a note… (the customer can see notes)">${esc(state.drafts['n:'+id]||'')}</textarea>
       <button class="btn small" data-act="add-note" data-id="${id}">Add</button>
-    </div>
+    </div>` : ''}
   </details>`;
 }
 function addNote(id){
+  if(!state.staff) return;
   const text = (state.drafts['n:'+id]||'').trim(); if(!text) return;
   delete state.drafts['n:'+id];
   const by = state.staff ? myName() : (state.jobs[id]?.customer || loadMe().name || '');
@@ -1958,7 +1961,7 @@ app.addEventListener('click', async e => {
     case 'part-price': { const pt = job.parts[b.dataset.part]; const v = prompt(`Price each (${CURRENCY})`, pt.price||''); if(v==null) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.price`]:parseCost(v), ...touch()})); break; }
     case 'add-note': addNote(id); break;
-    case 'del-note': { const n = job.notesLog?.[b.dataset.note]; if(n && confirm('Delete this note?')) act(() => B().updateJob(id, {[`notesLog.${b.dataset.note}`]:B().del(), ...touch()})); break; }
+    case 'del-note': { if(!state.staff) break; const n = job.notesLog?.[b.dataset.note]; if(n && confirm('Delete this note?')) act(() => B().updateJob(id, {[`notesLog.${b.dataset.note}`]:B().del(), ...touch()})); break; }
     case 'del-part': { const pt = job.parts[b.dataset.part]; if(confirm(`Remove "${pt.name}"?`)) act(() => B().updateJob(id, {[`parts.${b.dataset.part}`]:B().del(), ...touch()})); break; }
     case 'seen-all': {
       const patch = {}; newReqs(job).forEach(it => patch[`items.${it.id}.seen`] = true);

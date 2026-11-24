@@ -41,6 +41,7 @@ service cloud.firestore {
                                      && request.resource.data.get('customer', '') == resource.data.get('customer', '')
                                      && request.resource.data.get('contactKey', '') == resource.data.get('contactKey', '')
                                      && request.resource.data.get('jobNo', 0) == resource.data.get('jobNo', 0)
+                                     && request.resource.data.get('notesLog', {}) == resource.data.get('notesLog', {})
                                      && request.resource.data.get('sentToAccountsAt', 0) == resource.data.get('sentToAccountsAt', 0)
                                      && request.resource.data.get('parts', {}) == resource.data.get('parts', {}));
       allow delete: if isStaff();
