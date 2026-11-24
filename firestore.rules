@@ -5,11 +5,15 @@ service cloud.firestore {
     // ---- Staff: must match STAFF in index.html (email lower case, cell as +27…) ----
     function staffList() { return ['erik@enduroworx.co.za', '+27832716949', 'shannon@manapp.co.za']; }
 
+    // Nightly GitHub backup: read-only, can't change anything
+    function backupList() { return ['enduroworx@manapp.co.za']; }
+
     function signedIn()   { return request.auth != null; }
     // Only a proven (verified) email counts: email-link sign-in and the "set password" email both verify it
     function myEmail()    { return request.auth.token.get('email_verified', false) == true ? request.auth.token.get('email', '').lower() : ''; }
     function myPhone()    { return request.auth.token.get('phone_number', ''); }
     function isStaff()    { return signedIn() && (myEmail() in staffList() || myPhone() in staffList()); }
+    function isBackup()   { return signedIn() && myEmail() in backupList(); }
     function isCustomer() { return signedIn() && request.auth.token.firebase.sign_in_provider != 'anonymous'; }
     function mine(d)      { return isCustomer() && d.contactKey != ''
                                    && (d.contactKey == myEmail() || d.contactKey == myPhone()); }
@@ -24,7 +28,7 @@ service cloud.firestore {
       // Opening ONE job needs its private link (the random job id). Customers get a silent anonymous session.
       allow get:    if signedIn();
       // Listing/browsing jobs: staff and TV screens only (plus customers from the old sign-in, for their own jobs)
-      allow list:   if isStaff() || isScreen() || mine(resource.data);
+      allow list:   if isStaff() || isBackup() || isScreen() || mine(resource.data);
       // Anyone can book a bike in (no account needed); it always starts as "Booked in"
       // A job number, if given, must be the one just taken from meta/counter in the same step
       allow create: if isStaff() || (signedIn() && request.resource.data.status == 'booked'
@@ -45,7 +49,7 @@ service cloud.firestore {
     // Activity log: everyone signed in can ADD an entry about their own change; only staff can read it;
     // nobody can edit or delete entries (append-only)
     match /log/{id} {
-      allow read:   if isStaff();
+      allow read:   if isStaff() || isBackup();
       allow create: if signedIn() && request.resource.data.uid == request.auth.uid
                     && request.resource.data.keys().hasOnly(['at','jobId','customer','bike','who','kind','uid','summary','details'])
                     && (request.resource.data.kind == 'customer' || isStaff());
@@ -53,12 +57,13 @@ service cloud.firestore {
     }
 
     match /users/{uid} {
-      allow read:  if isStaff() || (signedIn() && request.auth.uid == uid);
+      allow read:  if isStaff() || isBackup() || (signedIn() && request.auth.uid == uid);
       allow write: if signedIn() && request.auth.uid == uid;
     }
 
     match /screens/{token} {
-      allow read, write: if isStaff();
+      allow read:  if isStaff() || isBackup();
+      allow write: if isStaff();
     }
 
     // Riding forecast: any signed-in person's phone may refresh it, everyone signed in (incl. TV screens) can read it
