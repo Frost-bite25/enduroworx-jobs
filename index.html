@@ -213,6 +213,16 @@
 
   dialog{background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:16px;padding:0;width:min(520px,94vw)}
   dialog::backdrop{background:rgba(0,0,0,.6)}
+  /* "Wanted by" date: light calendar icon, friendly date underneath, quick picks */
+  .duebox{position:relative;cursor:pointer}
+  .duebox input[type=date]{color-scheme:dark;font-size:16px;cursor:pointer}
+  .duebox input[type=date]::-webkit-calendar-picker-indicator{opacity:1;cursor:pointer;width:22px;height:22px}
+  .duebox input[type=date]:focus{border-color:#0505f0;box-shadow:0 0 0 3px #0505f055}
+  .duetxt{display:block;font-size:13px;color:#9fc0ff;margin:5px 2px 0} .duetxt.empty{color:var(--muted)}
+  .duequick{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+  .duequick button{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:999px;padding:6px 11px;font-size:13px;cursor:pointer}
+  .duequick button.on{background:#0505f0;border-color:#0505f0;color:#fff}
+  .duequick button[data-due=""]{color:var(--muted)}
   /* iPhone: dialog scrolls up/down only, never sideways, and the page behind stays still */
   dialog[open]{max-height:min(92vh,92dvh);overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;touch-action:pan-y;margin:auto}
   html:has(dialog[open]),html:has(dialog[open]) body{overflow:hidden;overscroll-behavior:none}
@@ -431,7 +441,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.7.3";
+const APP_VERSION = "2.7.4";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -476,6 +486,7 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.7.4","24 Nov","Clearer \"Wanted by\" date with quick picks (Tomorrow, In a week…)"],
   ["2.7.3","24 Nov","Export menu on finished jobs: email, QuickBooks, print, spreadsheet"],
   ["2.7.2","24 Nov","Customer QR link box now dark and readable"],
   ["2.7.1","24 Nov","QuickBooks CSV uses \"Bike Parts\" for parts lines"],
@@ -1621,6 +1632,34 @@ function renderBoard(){
 }
 
 /* ---------- job dialog ---------- */
+// Quick picks for "Wanted by": tomorrow, the next few working days and next week
+const isoDay = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+function dueQuick(){
+  const out = [], d = new Date(); d.setHours(12,0,0,0);
+  const add = n => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+  out.push(['Tomorrow', isoDay(add(1))]);
+  for(let n = 2, c = 0; c < 3 && n < 10; n++){ const x = add(n); if(x.getDay() === 0) continue; out.push([x.toLocaleDateString('en-ZA',{weekday:'short', day:'numeric'}), isoDay(x)]); c++; }
+  out.push(['In a week', isoDay(add(7))], ['2 weeks', isoDay(add(14))]);
+  return out;
+}
+function dueLong(iso){
+  if(!iso) return 'No date set';
+  const d = new Date(iso + 'T12:00:00'), t = new Date(); t.setHours(12,0,0,0);
+  const n = Math.round((d - t) / 864e5);
+  const rel = n === 0 ? 'today' : n === 1 ? 'tomorrow' : n > 1 ? `in ${n} days` : `${-n} day${n===-1?'':'s'} ago`;
+  return `${d.toLocaleDateString('en-ZA',{weekday:'long', day:'numeric', month:'long'})} · ${rel}`;
+}
+function wireDue(root){
+  const inp = root.querySelector('input[name=due]'); if(!inp) return;
+  const txt = root.querySelector('.duetxt'), quick = root.querySelector('.duequick');
+  const show = () => { txt.textContent = dueLong(inp.value); txt.classList.toggle('empty', !inp.value);
+    quick.querySelectorAll('button').forEach(b => b.classList.toggle('on', !!inp.value && b.dataset.due === inp.value)); };
+  inp.addEventListener('input', show); inp.addEventListener('change', show);
+  // Click anywhere on the box opens the calendar
+  root.querySelector('.duebox').addEventListener('click', e => { try{ inp.showPicker(); }catch{ inp.focus(); } });
+  quick.addEventListener('click', e => { const b = e.target.closest('[data-due]'); if(!b) return; inp.value = b.dataset.due; show(); });
+  show();
+}
 function openJobDialog(job, preset){
   const isNew = !job, staff = state.staff;
   job = job || preset || (staff ? {} : {customer:loadMe().name||'', email:loadMe().email||'', cell:loadMe().cell||''});
@@ -1648,7 +1687,9 @@ function openJobDialog(job, preset){
       </div>
       <datalist id="modelList">${(MODELS[sp.make]||[]).map(m => `<option value="${esc(m)}">`).join('')}</datalist>`;
     })()}
-    <label class="f">Wanted by (optional)</label><input class="in" name="due" type="date" value="${esc(job.due||'')}">
+    <label class="f">Wanted by (optional)</label>
+    <div class="duebox"><input class="in" name="due" type="date" value="${esc(job.due||'')}"><span class="duetxt"></span></div>
+    <div class="duequick">${dueQuick().map(([lab,iso]) => `<button type="button" data-due="${iso}">${lab}</button>`).join('')}<button type="button" data-due="">Clear</button></div>
     <label class="f">Notes</label><textarea class="in" name="notes" placeholder="${staff?'Notes about the bike or job':'Anything Erik should know'}">${esc(job.notes||'')}</textarea>
     ${isNew?`<label class="f">Work to be done</label>
       <textarea class="in" name="items" placeholder="One item per line, e.g.&#10;Oil and filter change${staff?' - 850':''}&#10;Chain and sprockets${staff?' - 2400':''}&#10;Fork seals leaking"></textarea>
@@ -1709,6 +1750,7 @@ function openJobDialog(job, preset){
       dlg.close();
     }catch(err){ toast('Could not save: ' + friendlyError(err)); }
   };
+  wireDue(dlg);
   dlg.showModal();
 }
 
