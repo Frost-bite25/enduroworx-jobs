@@ -176,6 +176,12 @@
   .arow i{color:var(--muted);font-style:normal;font-size:12px} .arow.muted{color:var(--muted);font-size:12px;border-top:0;padding-top:0}
   .arow.warn{color:#f5c45a;font-size:12px} .arow.tot{font-size:16px;border-top:2px solid var(--line)}
   .accbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px} .accbtns .btn{flex:1 1 140px;justify-content:center}
+  .invbar .qbbtn{margin-left:auto;display:inline-flex;margin-top:6px;background:#1a2a1a;border-color:#2f6b3a;color:#bff0c8}
+  .qblist{list-style:none;margin:0 0 12px;padding:0;max-height:45vh;overflow:auto}
+  .qblist li{border-top:1px solid var(--line);padding:8px 2px} .qblist li:first-child{border-top:0}
+  .qblist label{display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:14px}
+  .qblist input{width:20px;height:20px} .qblist em{margin-left:auto;font-style:normal;font-weight:700} .qblist small{flex-basis:100%;padding-left:28px;color:var(--muted)}
+  .qbhow{font-size:13px;margin-bottom:8px} .qbhow summary{cursor:pointer;font-weight:600} .qbhow ol{padding-left:18px;margin:8px 0} .qbhow li{margin:3px 0}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -419,13 +425,20 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.6.1";
+const APP_VERSION = "2.7.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
 const JOB_PREFIX = "EW";
 // Accounts department email for "Send to accounts" (can also be typed in once and remembered per device)
 const ACCOUNTS_EMAIL = "erik@enduroworx.co.za";
+// QuickBooks Online invoice import (Settings ⚙ → Import data → Invoices)
+const QB = {
+  dueDays: 7,              // invoice due date = invoice date + this many days
+  taxCode: "",             // empty while not VAT registered; later e.g. "Standard Rated (15%)"
+  labourItem: "Labour",    // QuickBooks product/service used for work lines
+  partsItem: "Parts",      // QuickBooks product/service used for parts lines
+};
 
 // Staff logins (Erik, plus anyone helping him). Email in lower case, cell numbers as +27…
 // These must ALSO be listed in staffList() in the Firestore rules.
@@ -457,6 +470,7 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.7.0","24 Nov","QuickBooks CSV: export finished jobs as QuickBooks invoices"],
   ["2.6.1","24 Nov","Customers can read notes but not add or delete them"],
   ["2.6.0","24 Nov","Notes section on every job card"],
   ["2.5.0","24 Nov","Job numbers (EW-1001…) on every job; Send to accounts for finished jobs"],
@@ -1003,6 +1017,7 @@ function jobCard(job){
     </div>
     ${staff && newReqs(job).length ? `<div class="reqbar"><span>🔔 <b>${newReqs(job).length} new request${newReqs(job).length===1?'':'s'}</b> from ${esc(firstName(job.customer))}</span>
       <button class="btn small" data-act="seen-all" data-id="${id}">Got it</button></div>` : ''}
+    ${staff && job.qbExportedAt && TO_INVOICE.includes(job.status) ? `<div class="accsent">In QuickBooks CSV ${esc(fmtStamp(job.qbExportedAt))}${job.qbExportedBy ? ` by ${esc(job.qbExportedBy)}` : ''}</div>` : ''}
     ${staff && job.sentToAccountsAt && TO_INVOICE.includes(job.status) ? `<div class="accsent">Sent to accounts ${esc(fmtStamp(job.sentToAccountsAt))}${job.sentToAccountsBy ? ` by ${esc(job.sentToAccountsBy)}` : ''}</div>` : ''}
     ${job.notes?`<p class="notes">${esc(job.notes)}</p>`:''}
     <div class="prog">
@@ -1232,7 +1247,8 @@ function describeChange(job, patch){
   const out = [], q = t => `“${t || '?'}”`, lab = st => STATUSES[st]?.label || st || '—';
   const doneKeys = new Set(Object.keys(patch).filter(k => /^items\.[^.]+\.done$/.test(k)).map(k => k.split('.')[1]));
   for(const [k, v] of Object.entries(patch)){
-    if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo'].includes(k)) continue;
+    if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo','qbExportedBy'].includes(k)) continue;
+    if(k === 'qbExportedAt'){ out.push('Exported to QuickBooks CSV'); continue; }
     if(k === 'sentToAccountsAt'){ out.push(`Sent to accounts${patch.sentToAccountsBy ? ` (${patch.sentToAccountsBy})` : ''}`); continue; }
     const del = v && v.__del; let m;
     if(k === 'status'){ if(v !== job.status) out.push(`Status: ${lab(job.status)} → ${lab(v)}`); }
@@ -1575,7 +1591,8 @@ function renderBoard(){
       ${state.staff ? viewToggle('jobs') : ''}
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
     </div>
-    ${state.tab === 'toinvoice' && toInvoice.length ? `<div class="invbar">⚠️ ${toInvoice.length} finished job${toInvoice.length===1?'':'s'} not invoiced yet. Tap <b>Send to accounts</b> to pass a job on, then <b>Mark invoiced</b> once the invoice has gone out.</div>` : ''}
+    ${state.tab === 'toinvoice' && toInvoice.length ? `<div class="invbar">⚠️ ${toInvoice.length} finished job${toInvoice.length===1?'':'s'} not invoiced yet. Tap <b>Send to accounts</b> to pass a job on, then <b>Mark invoiced</b> once the invoice has gone out.
+      <button class="btn small qbbtn" data-act="qb-csv">⬇ QuickBooks CSV</button></div>` : ''}
     ${!state.loaded ? `<div class="empty">Loading…</div>`
       : list.length ? (state.staff && state.view.jobs === 'list' ? jobList(list) : masonry(list))
       : `<div class="empty">${state.tab==='toinvoice' ? 'Nothing waiting to be invoiced. 👍' : state.tab!=='open' ? (state.staff ? 'No invoiced jobs yet.' : 'No finished jobs yet.') : js !== 'all' ? 'No jobs with that status.'
@@ -1677,6 +1694,77 @@ function openJobDialog(job, preset){
   dlg.showModal();
 }
 
+/* ---------- QuickBooks Online CSV (one file, many invoices) ---------- */
+// Same layout as QuickBooks' own sample file (Settings ⚙ → Import data → Invoices → Download a sample file),
+// so every column maps by itself. Customer, dates and notes go on the first line of each invoice only.
+function qbRows(jobs){
+  const dmy = d => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+  const today = new Date(), due = new Date(Date.now() + QB.dueDays * 864e5), n2 = v => (+v||0).toFixed(2);
+  const tax = !!QB.taxCode;
+  const rows = [['*InvoiceNo','*Customer','*InvoiceDate','*DueDate','Terms','Location','Memo','Item(Product/Service)','ItemDescription','ItemQuantity','ItemRate','*ItemAmount', ...(tax ? ['*ItemTaxCode'] : []), 'Service Date','Note to customer']];
+  for(const job of jobs){
+    const s = stats(job), no = jobNoOf(job);
+    const lines = [
+      ...s.items.filter(i => i.done).map(i => [QB.labourItem, i.text, 1, +i.cost||0, +i.cost||0]),
+      ...s.parts.map(p => [QB.partsItem, `${p.name}${p.partNo ? ` (${p.partNo})` : ''}`, +p.qty||1, +p.price||0, partLine(p)]),
+    ];
+    lines.forEach(([item, desc, qty, rate, amt], k) => {
+      const first = k === 0;
+      rows.push([no, first ? (job.customer||'').trim() : '', first ? dmy(today) : '', first ? dmy(due) : '', '', '',
+        first ? `Job ${no}${job.bike ? ` · ${job.bike}` : ''}` : '', item, desc, n2(qty), n2(rate), n2(amt), ...(tax ? [QB.taxCode] : []),
+        '', first ? `${job.bike ? job.bike + ' · ' : ''}Job ${no}. Thank you for riding with Enduroworx!` : '']);
+    });
+  }
+  return rows;
+}
+function exportQuickBooks(jobs){
+  const skipped = jobs.filter(j => !j.jobNo), use = jobs.filter(j => j.jobNo);
+  const empty = use.filter(j => !stats(j).items.some(i => i.done) && !stats(j).parts.length);
+  const ok = use.filter(j => !empty.includes(j));
+  if(!ok.length) return toast('Nothing to export: no finished work or parts on these jobs');
+  const cell = v => { const t = String(v ?? ''); return /[",\n]/.test(t) ? `"${t.replace(/"/g,'""')}"` : t; };
+  const csv = qbRows(ok).map(r => r.map(cell).join(',')).join('\r\n') + '\r\n';
+  const stamp = new Date().toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'});
+  const name = ok.length === 1 ? `QuickBooks-${jobNoOf(ok[0])}.csv` : `QuickBooks-invoices-${stamp}.csv`;
+  const url = URL.createObjectURL(new Blob([csv], {type:'text/csv;charset=utf-8'}));
+  const l = Object.assign(document.createElement('a'), {href:url, download:name});
+  document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+  const now = Date.now();
+  ok.filter(j => !j.qbExportedAt).forEach(j => act(() => B().updateJob(j.id, {qbExportedAt:now, qbExportedBy:myName(), ...touch()})));
+  const warn = [skipped.length && `${skipped.length} without a job number`, empty.length && `${empty.length} with nothing ticked`].filter(Boolean).join(', ');
+  toast(`${ok.length} invoice${ok.length===1?'':'s'} in ${name}${warn ? ` · left out: ${warn}` : ''}`);
+}
+function openQbDialog(){
+  const all = Object.values(state.jobs).filter(j => TO_INVOICE.includes(j.status)).sort((a,b) => (a.jobNo||0) - (b.jobNo||0));
+  const fresh = all.filter(j => !j.qbExportedAt);
+  dlg.dataset.kind = 'qb';
+  dlg.innerHTML = `<div class="dbody">
+    <h2>QuickBooks CSV</h2>
+    <p class="hint" style="margin-top:0">One file with an invoice per job, numbered with the job number. Only ticked work and parts are included.</p>
+    <ul class="qblist">${all.map(j => { const st = stats(j), tot = st.items.filter(i=>i.done).reduce((a,i)=>a+(+i.cost||0),0) + st.partsTotal;
+      return `<li><label><input type="checkbox" value="${j.id}" ${j.qbExportedAt ? '' : 'checked'}>
+        <b>${esc(jobNoOf(j) || '—')}</b> <span>${esc(j.customer||'')}</span> <em>${money(tot)}</em>
+        ${j.qbExportedAt ? `<small>exported ${esc(ago(j.qbExportedAt))}</small>` : ''}</label></li>`; }).join('') || '<li class="hint">No jobs waiting to be invoiced.</li>'}</ul>
+    <details class="qbhow"><summary>How to import into QuickBooks</summary><ol>
+      <li>QuickBooks → Settings ⚙ → <b>Import data</b> → <b>Invoices</b>.</li>
+      <li>Tick <b>Add new customers</b> and <b>Add new products and services</b> (the first time this creates "${esc(QB.labourItem)}" and "${esc(QB.partsItem)}").</li>
+      <li>Browse to the downloaded file → Next.</li>
+      <li>Every column matches by itself. Next to Invoice Date pick the date format <b>dd/MM/yyyy</b>.</li>
+      <li>Check the summary → <b>Start import</b>.</li></ol>
+      <p class="hint">Customer names must match QuickBooks exactly, or a new customer is created. "Custom transaction numbers" must be on so the EW numbers are kept.</p></details>
+    <div class="dfoot"><button class="btn" data-a="close">Close</button>
+      <button class="btn primary" data-a="go">⬇ Download CSV</button></div>
+  </div>`;
+  dlg.querySelector('.dbody').onclick = ev => {
+    const b = ev.target.closest('[data-a]'); if(!b) return;
+    if(b.dataset.a === 'close') return dlg.close();
+    const ids = [...dlg.querySelectorAll('.qblist input:checked')].map(i => i.value);
+    if(!ids.length) return toast('Tick at least one job');
+    exportQuickBooks(ids.map(id => state.jobs[id])); dlg.close();
+  };
+  dlg.showModal();
+}
+
 /* ---------- Send a finished job to the accounts department ---------- */
 function accountsData(job){
   const s = stats(job), done = s.items.filter(i => i.done), notDone = s.items.filter(i => !i.done);
@@ -1759,6 +1847,7 @@ function openAccountsDialog(job){
       ${navigator.share ? `<button class="btn" data-a="share">Share…</button>` : ''}
       <button class="btn" data-a="print">Print / PDF</button>
       <button class="btn" data-a="csv">Download CSV</button>
+      <button class="btn" data-a="qb">QuickBooks CSV</button>
     </div>
     <div class="hint">Email opens your mail app with the full breakdown filled in. Share can attach the CSV (iPhone, iPad, Mac). Only ticked work is included.</div>
     <div class="dfoot"><button class="btn" data-a="close">Close</button></div>
@@ -1790,6 +1879,7 @@ function openAccountsDialog(job){
         w.document.write(accountsSheetHtml(job)); w.document.close();
         setTimeout(() => { w.focus(); w.print(); }, 300);
         mark(); break; }
+      case 'qb': exportQuickBooks([state.jobs[job.id] || job]); break;
       case 'csv': {
         const url = URL.createObjectURL(new Blob([accountsCsv(job)], {type:'text/csv;charset=utf-8'}));
         const l = Object.assign(document.createElement('a'), {href:url, download:`${fname}.csv`});
@@ -1969,6 +2059,7 @@ app.addEventListener('click', async e => {
       act(() => B().updateJob(id, patch)); break; }
     case 'invoiced': act(() => B().updateJob(id, {status:'invoiced', invoicedAt:Date.now(), ...touch()})); break;
     case 'accounts': openAccountsDialog(job); break;
+    case 'qb-csv': openQbDialog(); break;
     case 'reopen': act(() => B().updateJob(id, {status:'ready', ...touch()})); break;
     case 'del-job':
       if(confirm(`Delete ${job.customer}'s job permanently? This can't be undone.`)) act(() => B().removeJob(id)); break;
