@@ -156,6 +156,19 @@
   .bikerow{display:flex;gap:8px} .bikerow > div{flex:1;min-width:0} .bikerow .yr{flex:0 0 96px}
   select.in{width:100%;appearance:none;-webkit-appearance:none;background-color:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:10px 38px 10px 10px;font-size:16px;
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%239a98a0' stroke-width='2'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 14px center}
+  .jtags{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  .jobno{font-size:11px;font-weight:800;letter-spacing:.04em;color:var(--text);background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:2px 6px;font-variant-numeric:tabular-nums}
+  .jlno{font-style:normal;font-weight:700;color:var(--text);font-size:12px;margin-right:2px}
+  .tno{font-size:.6em;font-weight:700;color:var(--muted);margin-left:.3em}
+  .btn.acc{background:#10233f;border-color:#2b4f86;color:#b9d4ff;font-weight:600}
+  .accsent{font-size:12px;color:#9fc0ff;margin:6px 0 0}
+  .accsheet{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px}
+  .ash{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:4px}
+  .ash span{display:block;color:var(--muted);font-size:13px} .ano{font-weight:800;font-size:18px;white-space:nowrap}
+  .arow{display:flex;justify-content:space-between;gap:10px;padding:5px 0;border-top:1px solid var(--line)}
+  .arow i{color:var(--muted);font-style:normal;font-size:12px} .arow.muted{color:var(--muted);font-size:12px;border-top:0;padding-top:0}
+  .arow.warn{color:#f5c45a;font-size:12px} .arow.tot{font-size:16px;border-top:2px solid var(--line)}
+  .accbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px} .accbtns .btn{flex:1 1 140px;justify-content:center}
   .invbar{background:#2a1212;border:1px solid #6b2a2a;color:#ffc2c2;border-radius:10px;padding:9px 12px;font-size:14px;margin-bottom:12px}
   .notes{font-size:14px;color:#c8d0d8;margin:10px 0 0;white-space:pre-wrap}
   .prog{margin:12px 0 6px}
@@ -398,9 +411,13 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.4.6";
+const APP_VERSION = "2.5.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
+// Job numbers: every new job gets the next number, e.g. EW-1001
+const JOB_PREFIX = "EW";
+// Accounts department email for "Send to accounts" (can also be typed in once and remembered per device)
+const ACCOUNTS_EMAIL = "erik@enduroworx.co.za";
 
 // Staff logins (Erik, plus anyone helping him). Email in lower case, cell numbers as +27…
 // These must ALSO be listed in staffList() in the Firestore rules.
@@ -432,6 +449,7 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.5.0","24 Nov","Job numbers (EW-1001…) on every job; Send to accounts for finished jobs"],
   ["2.4.6","24 Nov","Booking form on iPhone scrolls up and down only, page behind stays still"],
   ["2.4.5","24 Nov","Enduroworx logo slightly bigger"],
   ["2.4.4","24 Nov","Hover or tap the version number to see what's new"],
@@ -528,6 +546,9 @@ function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove());
 function itemsOf(job){ return Object.entries(job.items||{}).map(([id,it])=>({id,...it})).sort((a,b)=>(a.t||0)-(b.t||0)); }
 function partsOf(job){ return Object.entries(job.parts||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.t||0)-(b.t||0)); }
 const partLine = p => (+p.qty||1) * (+p.price||0);
+// "EW-1001" (empty until the job has a number)
+const jobNoOf = j => j && j.jobNo ? `${JOB_PREFIX}-${j.jobNo}` : '';
+const jobNoTag = j => jobNoOf(j) ? `<span class="jobno">${jobNoOf(j)}</span>` : '';
 function stats(job){
   const items = itemsOf(job), done = items.filter(i=>i.done), parts = partsOf(job);
   const work = items.reduce((s,i)=>s+(+i.cost||0),0), partsTotal = parts.reduce((s,p)=>s+partLine(p),0);
@@ -644,7 +665,25 @@ async function firebaseBackend(){
       const uns = qs.map((q,i) => listen(q, o => { parts[i] = o; cb(Object.assign({}, ...parts)); }, onState));
       return () => uns.forEach(u => u());
     },
-    addJob: j => F.addDoc(jobs, j).then(r => r.id),
+    // New job + next job number in one step (meta/counter). If the number can't be given (old rules, offline),
+    // the job is still saved and staff number it later.
+    async addJob(j){
+      const ref = F.doc(jobs), cnt = F.doc(db, 'meta', 'counter');
+      try{
+        j.jobNo = await F.runTransaction(db, async tx => {
+          const c = await tx.get(cnt), n = c.exists() ? (+c.data().n || 1000) + 1 : 1001;
+          tx.set(cnt, {n}); tx.set(ref, {...j, jobNo:n}); return n;
+        });
+        return ref.id;
+      }catch(e){ console.warn('Job number not given, saving without', e); delete j.jobNo; return F.addDoc(jobs, j).then(r => r.id); }
+    },
+    // Staff: give numbers to jobs that don't have one yet, in booking order
+    numberJobs: list => F.runTransaction(db, async tx => {
+      const cnt = F.doc(db, 'meta', 'counter'), c = await tx.get(cnt);
+      let n = c.exists() ? (+c.data().n || 1000) : 1000;
+      for(const j of list){ n++; tx.update(F.doc(jobs, j.id), {jobNo:n}); }
+      tx.set(cnt, {n}); return n;
+    }),
     // {__del:true} marks a field to remove (so the activity log can read the change before it is sent)
     updateJob: (id, p) => F.updateDoc(F.doc(jobs, id), Object.fromEntries(Object.entries(p).map(([k,v]) => [k, v && v.__del ? F.deleteField() : v]))),
     removeJob: id => F.deleteDoc(F.doc(jobs, id)),
@@ -708,7 +747,8 @@ function demoBackend(){
         onState && onState(true); cb(out);
       });
     },
-    async addJob(job){ const d = read(), id = uid(); d.jobs[id] = {...job, id}; write(d); return id; },
+    async addJob(job){ const d = read(), id = uid(); d.counter = (d.counter || 1000) + 1; job.jobNo = d.counter; d.jobs[id] = {...job, id}; write(d); return id; },
+    async numberJobs(list){ const d = read(); let n = d.counter || 1000; for(const j of list){ if(d.jobs[j.id]) d.jobs[j.id].jobNo = ++n; } d.counter = n; write(d); return n; },
     async updateJob(id, patch){
       const d = read(); if(!d.jobs[id]) throw new Error('Job no longer exists');
       for(const [k,v] of Object.entries(patch)){
@@ -943,7 +983,7 @@ function jobCard(job){
   const sub = [job.bike, staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
-      <div>${makeBadge(job.bike)}<h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
+      <div><div class="jtags">${makeBadge(job.bike)}${jobNoTag(job)}</div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
         ${job.createdAt?`<div class="sub">Booked in ${esc(fmtStamp(job.createdAt))} <span class="ago">(${esc(ago(job.createdAt))})</span></div>`:''}
         ${job.due?`<div class="sub due ${isOpen(job)?dueClass(job.due):''}" style="color:var(--accent)">Wanted by ${esc(fmtDate(job.due))}${isOpen(job)?dueLabel(job.due):''}</div>`:''}</div>
       ${staff
@@ -953,6 +993,7 @@ function jobCard(job){
     </div>
     ${staff && newReqs(job).length ? `<div class="reqbar"><span>🔔 <b>${newReqs(job).length} new request${newReqs(job).length===1?'':'s'}</b> from ${esc(firstName(job.customer))}</span>
       <button class="btn small" data-act="seen-all" data-id="${id}">Got it</button></div>` : ''}
+    ${staff && job.sentToAccountsAt && TO_INVOICE.includes(job.status) ? `<div class="accsent">Sent to accounts ${esc(fmtStamp(job.sentToAccountsAt))}${job.sentToAccountsBy ? ` by ${esc(job.sentToAccountsBy)}` : ''}</div>` : ''}
     ${job.notes?`<p class="notes">${esc(job.notes)}</p>`:''}
     <div class="prog">
       <div class="track"><i style="width:${s.pct}%"></i></div>
@@ -989,7 +1030,8 @@ function jobCard(job){
       <button class="btn small ghost" data-act="edit-job" data-id="${id}">Edit</button>
       <button class="btn small ghost" data-act="copy-job-link" data-id="${id}" title="Copy this job's private link">Link</button>
       ${!staff && !isOpen(job) ? `<button class="btn small ghost" data-act="forget" data-id="${id}">Remove from this phone</button>` : ''}
-      ${staff && TO_INVOICE.includes(job.status) ? `<button class="btn small inv" data-act="invoiced" data-id="${id}">Mark invoiced</button>` : ''}
+      ${staff && TO_INVOICE.includes(job.status) ? `<button class="btn small acc" data-act="accounts" data-id="${id}">${job.sentToAccountsAt ? '✓ Sent to accounts' : 'Send to accounts'}</button>
+        <button class="btn small inv" data-act="invoiced" data-id="${id}">Mark invoiced</button>` : ''}
       ${staff ? (!isOpen(job)
         ? `<button class="btn small ghost" data-act="reopen" data-id="${id}">Reopen</button>
            ${job.status==='invoiced'?`<button class="btn small ghost danger" data-act="del-job" data-id="${id}">Delete</button>`:''}`
@@ -1073,11 +1115,11 @@ function exportJobs(){
   const jobs = Object.values(state.jobs).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
   if(!jobs.length) return toast('No jobs to export yet');
   const day = ms => ms ? new Date(ms).toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'}) : '';
-  const cols = ['Customer','Email','Cell','Bike','Status','Booked in','Wanted by','Collected','Invoiced',
+  const cols = ['Job no','Customer','Email','Cell','Bike','Status','Booked in','Wanted by','Collected','Invoiced',
     'Work items','Work total','Parts used','Parts total','Total','Notes','Job link'];
   const rows = jobs.map(j => {
     const s = stats(j);
-    return [j.customer, jobEmail(j), showContact(jobCell(j)), j.bike, STATUSES[j.status]?.label || j.status,
+    return [jobNoOf(j), j.customer, jobEmail(j), showContact(jobCell(j)), j.bike, STATUSES[j.status]?.label || j.status,
       day(j.createdAt), j.due || '', day(j.collectedAt), day(j.invoicedAt),
       s.items.map(i => `${i.done ? '✓' : '○'} ${i.text}${i.cost ? ` (${i.cost})` : ''}`).join('; '), s.work,
       s.parts.map(p => `${+p.qty||1}× ${p.name}${p.partNo ? ` [${p.partNo}]` : ''} @ ${p.price||0}`).join('; '), s.partsTotal,
@@ -1152,7 +1194,8 @@ function describeChange(job, patch){
   const out = [], q = t => `“${t || '?'}”`, lab = st => STATUSES[st]?.label || st || '—';
   const doneKeys = new Set(Object.keys(patch).filter(k => /^items\.[^.]+\.done$/.test(k)).map(k => k.split('.')[1]));
   for(const [k, v] of Object.entries(patch)){
-    if(['updatedAt','collectedAt','invoicedAt','contactKey'].includes(k)) continue;
+    if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo'].includes(k)) continue;
+    if(k === 'sentToAccountsAt'){ out.push(`Sent to accounts${patch.sentToAccountsBy ? ` (${patch.sentToAccountsBy})` : ''}`); continue; }
     const del = v && v.__del; let m;
     if(k === 'status'){ if(v !== job.status) out.push(`Status: ${lab(job.status)} → ${lab(v)}`); }
     else if((m = k.match(/^items\.([^.]+)$/))){
@@ -1275,7 +1318,7 @@ function jobList(jobs){
   const rows = jobs.map(job => {
     const s = stats(job), id = job.id, open = state.expanded.has(id), nr = newReqs(job).length;
     return `<div class="jl-row s-${esc(job.status)} ${open?'exp':''}" data-act="expand" data-id="${id}">
-      <div class="jl-name"><b>${esc(job.customer)}</b><span>${makeBadge(job.bike,'sm')} ${esc(job.bike||'')}</span></div>
+      <div class="jl-name"><b>${esc(job.customer)}</b><span>${jobNoOf(job) ? `<em class="jlno">${jobNoOf(job)}</em> ` : ''}${makeBadge(job.bike,'sm')} ${esc(job.bike||'')}</span></div>
       <div class="jl-status"><select data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
         `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
       <div class="jl-prog"><div class="track"><i style="width:${s.pct}%"></i></div><span>${s.done}/${s.total}</span></div>
@@ -1396,7 +1439,7 @@ function waMessageFor(job){
   const s = stats(job), hi = `Hi ${firstName(job.customer)}`, bike = job.bike ? `your ${job.bike}` : 'your bike';
   const done = s.items.filter(i => i.done).map(i => i.text), todo = s.items.filter(i => !i.done).map(i => i.text);
   const total = s.est ? `\nEstimated total: ${money(s.est)}${s.partsTotal ? ` (work ${money(s.work)} + parts ${money(s.partsTotal)})` : ''}` : '';
-  const sign = `\n– Enduroworx Plettenberg Bay`, track = `\nFollow your bike here: ${jobUrl(job.id)}`;
+  const sign = `\n– Enduroworx Plettenberg Bay`, track = `${jobNoOf(job) ? `\nJob no: ${jobNoOf(job)}` : ''}\nFollow your bike here: ${jobUrl(job.id)}`;
   switch(job.status){
     case 'ready':
       return `${hi}, ${bike} is ready for collection 🏍️${done.length ? `\nWork done: ${done.join(', ')}.` : ''}${s.parts.length ? `\nParts used: ${s.parts.map(p => `${(+p.qty||1) > 1 ? (+p.qty)+'× ' : ''}${p.name}`).join(', ')}.` : ''}${total}${track}${sign}`;
@@ -1490,7 +1533,7 @@ function renderBoard(){
       ${state.staff ? viewToggle('jobs') : ''}
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
     </div>
-    ${state.tab === 'toinvoice' && toInvoice.length ? `<div class="invbar">⚠️ ${toInvoice.length} finished job${toInvoice.length===1?'':'s'} not invoiced yet. Tap <b>Mark invoiced</b> once the invoice has gone out.</div>` : ''}
+    ${state.tab === 'toinvoice' && toInvoice.length ? `<div class="invbar">⚠️ ${toInvoice.length} finished job${toInvoice.length===1?'':'s'} not invoiced yet. Tap <b>Send to accounts</b> to pass a job on, then <b>Mark invoiced</b> once the invoice has gone out.</div>` : ''}
     ${!state.loaded ? `<div class="empty">Loading…</div>`
       : list.length ? (state.staff && state.view.jobs === 'list' ? jobList(list) : masonry(list))
       : `<div class="empty">${state.tab==='toinvoice' ? 'Nothing waiting to be invoiced. 👍' : state.tab!=='open' ? (state.staff ? 'No invoiced jobs yet.' : 'No finished jobs yet.') : js !== 'all' ? 'No jobs with that status.'
@@ -1579,13 +1622,136 @@ function openJobDialog(job, preset){
           items[uid()] = {text:p.text, cost:p.cost, done:false, by:staff ? myName() : data.customer, byUid:state.user.uid, t:now+i,
             ...(staff ? {fromCustomer:false} : {fromCustomer:true, seen:false})};
         });
-        const newId = await B().addJob({...data, status:'booked', createdAt:now, createdBy:state.user.uid, items});
-        if(!staff){ rememberJob(newId); dlg.close(); toast('Booked in! This phone will remember your bike.'); startBoard(); return; }
+        const nj = {...data, status:'booked', createdAt:now, createdBy:state.user.uid, items};
+        const newId = await B().addJob(nj);
+        if(!staff){ rememberJob(newId); dlg.close(); toast(`Booked in!${nj.jobNo ? ` Your job number is ${JOB_PREFIX}-${nj.jobNo}.` : ''} This phone will remember your bike.`); startBoard(); return; }
+        if(nj.jobNo) toast(`Job ${JOB_PREFIX}-${nj.jobNo} booked in`);
       } else {
         await B().updateJob(job.id, data);
       }
       dlg.close();
     }catch(err){ toast('Could not save: ' + friendlyError(err)); }
+  };
+  dlg.showModal();
+}
+
+/* ---------- Send a finished job to the accounts department ---------- */
+function accountsData(job){
+  const s = stats(job), done = s.items.filter(i => i.done), notDone = s.items.filter(i => !i.done);
+  const workDone = done.reduce((a,i) => a + (+i.cost||0), 0);
+  const d = ms => ms ? new Date(ms).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric',timeZone:'Africa/Johannesburg'}) : '';
+  return {s, done, notDone, workDone, total: workDone + s.partsTotal, no: jobNoOf(job) || '(no number yet)',
+    booked:d(job.createdAt), collected:d(job.collectedAt), email:jobEmail(job), cell:showContact(jobCell(job))};
+}
+function accountsText(job){
+  const a = accountsData(job), L = [];
+  L.push(`INVOICE REQUEST – Job ${a.no}`, SHOP_NAME, '');
+  L.push(`Customer: ${job.customer || ''}`);
+  if(a.email) L.push(`Email: ${a.email}`);
+  if(a.cell) L.push(`Cell: ${a.cell}`);
+  if(job.bike) L.push(`Bike: ${job.bike}`);
+  L.push(`Booked in: ${a.booked}${a.collected ? ` · Collected: ${a.collected}` : ''}`, '');
+  L.push('WORK DONE');
+  a.done.length ? a.done.forEach(i => L.push(`- ${i.text}: ${i.cost ? money(i.cost) : 'no price'}`)) : L.push('- none');
+  if(a.notDone.length){ L.push('', 'NOT DONE (not included)'); a.notDone.forEach(i => L.push(`- ${i.text}${i.cost ? ` (${money(i.cost)})` : ''}`)); }
+  if(a.s.parts.length){ L.push('', 'PARTS'); a.s.parts.forEach(p => L.push(`- ${+p.qty||1} × ${p.name}${p.partNo ? ` [${p.partNo}]` : ''} @ ${money(+p.price||0)} = ${money(partLine(p))}`)); }
+  L.push('', `Work: ${money(a.workDone)}`, `Parts: ${money(a.s.partsTotal)}`, `TOTAL: ${money(a.total)}`);
+  if(job.notes) L.push('', `Notes: ${job.notes}`);
+  L.push('', `Job link: ${jobUrl(job.id)}`);
+  return L.join('\n');
+}
+function accountsCsv(job){
+  const a = accountsData(job), base = [a.no, a.booked, a.collected, job.customer||'', a.email, a.cell, job.bike||''];
+  const rows = [['Job no','Booked in','Collected','Customer','Email','Cell','Bike','Type','Description','Part no','Qty','Unit price','Line total']];
+  a.done.forEach(i => rows.push([...base, 'Work', i.text, '', 1, +i.cost||0, +i.cost||0]));
+  a.s.parts.forEach(p => rows.push([...base, 'Part', p.name, p.partNo||'', +p.qty||1, +p.price||0, partLine(p)]));
+  rows.push([...base, 'Total', '', '', '', '', a.total]);
+  const cell = v => { const t = String(v ?? ''); return /[",\n;]/.test(t) ? `"${t.replace(/"/g,'""')}"` : t; };
+  return '﻿' + rows.map(r => r.map(cell).join(',')).join('\r\n');
+}
+function accountsSheetHtml(job){
+  const a = accountsData(job), e = esc;
+  const tr = (c1, c2, c3='', c4='') => `<tr><td>${c1}</td><td>${c2}</td><td class="r">${c3}</td><td class="r">${c4}</td></tr>`;
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Job ${e(a.no)} – ${e(job.customer||'')}</title>
+  <style>body{font:14px -apple-system,Helvetica,Arial,sans-serif;color:#111;margin:32px}h1{margin:0;font-size:22px}
+  .top{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #111;padding-bottom:10px;margin-bottom:14px}
+  .no{font-size:26px;font-weight:800}.muted{color:#666}table{width:100%;border-collapse:collapse;margin:8px 0 16px}
+  th,td{text-align:left;padding:6px 4px;border-bottom:1px solid #ddd}th{font-size:12px;color:#666;text-transform:uppercase}.r{text-align:right}
+  .tot td{border:0;font-weight:700}.grid{display:grid;grid-template-columns:120px 1fr;gap:4px 10px;margin-bottom:12px}
+  @media print{body{margin:12mm}}</style></head><body>
+  <div class="top"><div><h1>${e(SHOP_NAME)}</h1><div class="muted">Job sheet for invoicing</div></div><div class="r"><div class="muted">Job no</div><div class="no">${e(a.no)}</div></div></div>
+  <div class="grid"><b>Customer</b><span>${e(job.customer||'')}</span>${a.email?`<b>Email</b><span>${e(a.email)}</span>`:''}${a.cell?`<b>Cell</b><span>${e(a.cell)}</span>`:''}
+    ${job.bike?`<b>Bike</b><span>${e(job.bike)}</span>`:''}<b>Booked in</b><span>${e(a.booked)}</span>${a.collected?`<b>Collected</b><span>${e(a.collected)}</span>`:''}</div>
+  <table><tr><th>Work done</th><th></th><th class="r"></th><th class="r">Amount</th></tr>
+    ${a.done.map(i => tr(e(i.text), '', '', i.cost ? money(i.cost) : '—')).join('') || tr('<span class="muted">None</span>','')}</table>
+  ${a.s.parts.length ? `<table><tr><th>Part</th><th>Part no</th><th class="r">Qty × price</th><th class="r">Amount</th></tr>
+    ${a.s.parts.map(p => tr(e(p.name), e(p.partNo||''), `${+p.qty||1} × ${money(+p.price||0)}`, money(partLine(p)))).join('')}</table>` : ''}
+  <table class="tot"><tr><td></td><td></td><td class="r">Work</td><td class="r">${money(a.workDone)}</td></tr>
+    <tr><td></td><td></td><td class="r">Parts</td><td class="r">${money(a.s.partsTotal)}</td></tr>
+    <tr><td></td><td></td><td class="r" style="font-size:16px">Total</td><td class="r" style="font-size:16px">${money(a.total)}</td></tr></table>
+  ${a.notDone.length ? `<p class="muted">Not done, not included: ${a.notDone.map(i => e(i.text)).join(', ')}</p>` : ''}
+  ${job.notes ? `<p><b>Notes:</b> ${e(job.notes)}</p>` : ''}
+  </body></html>`;
+}
+function openAccountsDialog(job){
+  const a = accountsData(job);
+  let to = ''; try{ to = localStorage.getItem('jobboard.accountsEmail') || ACCOUNTS_EMAIL; }catch{ to = ACCOUNTS_EMAIL; }
+  const fname = `${(jobNoOf(job) || 'job')}-${(job.customer||'').replace(/[^\w]+/g,'-')}`.replace(/-+$/,'');
+  dlg.dataset.kind = 'accounts';
+  dlg.innerHTML = `<div class="dbody">
+    <h2>Send to accounts</h2>
+    <div class="accsheet">
+      <div class="ash"><div><b>${esc(job.customer||'')}</b><span>${esc(job.bike||'')}</span></div><div class="ano">${esc(a.no)}</div></div>
+      <div class="arow muted"><span>Booked in ${esc(a.booked)}${a.collected ? ` · collected ${esc(a.collected)}` : ''}</span></div>
+      ${a.done.map(i => `<div class="arow"><span>${esc(i.text)}</span><b>${i.cost ? money(i.cost) : '—'}</b></div>`).join('')}
+      ${a.s.parts.map(p => `<div class="arow"><span>🔩 ${+p.qty||1} × ${esc(p.name)}${p.partNo ? ` <i>${esc(p.partNo)}</i>` : ''}</span><b>${money(partLine(p))}</b></div>`).join('')}
+      ${a.notDone.length ? `<div class="arow warn"><span>Not done, left off: ${a.notDone.map(i => esc(i.text)).join(', ')}</span></div>` : ''}
+      <div class="arow tot"><span>Total</span><b>${money(a.total)}</b></div>
+    </div>
+    <label class="f">Accounts email</label>
+    <input class="in" id="accto" type="email" placeholder="accounts@…" value="${esc(to)}">
+    <div class="accbtns">
+      <button class="btn primary" data-a="email">✉️ Email accounts</button>
+      ${navigator.share ? `<button class="btn" data-a="share">Share…</button>` : ''}
+      <button class="btn" data-a="print">Print / PDF</button>
+      <button class="btn" data-a="csv">Download CSV</button>
+    </div>
+    <div class="hint">Email opens your mail app with the full breakdown filled in. Share can attach the CSV (iPhone, iPad, Mac). Only ticked work is included.</div>
+    <div class="dfoot"><button class="btn" data-a="close">Close</button></div>
+  </div>`;
+  let sent = false;
+  const mark = () => {
+    if(sent || state.jobs[job.id]?.sentToAccountsAt) return; sent = true;
+    act(() => B().updateJob(job.id, {sentToAccountsAt:Date.now(), sentToAccountsBy:myName(), ...touch()}));
+  };
+  const csvFile = () => new File([accountsCsv(job)], `${fname}.csv`, {type:'text/csv'});
+  dlg.querySelector('.dbody').onclick = async ev => {
+    const b = ev.target.closest('[data-a]'); if(!b) return;
+    const toEl = dlg.querySelector('#accto'), addr = toEl.value.trim();
+    if(addr){ try{ localStorage.setItem('jobboard.accountsEmail', addr); }catch{} }
+    const subject = `Invoice: Job ${a.no} – ${job.customer||''}${job.bike ? ` – ${job.bike}` : ''}`;
+    switch(b.dataset.a){
+      case 'close': dlg.close(); break;
+      case 'email':
+        location.href = `mailto:${encodeURIComponent(addr)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(accountsText(job))}`;
+        mark(); break;
+      case 'share': {
+        const data = {title:subject, text:accountsText(job)};
+        try{ const f = csvFile(); if(navigator.canShare?.({files:[f]})) data.files = [f]; }catch{}
+        try{ await navigator.share(data); mark(); }catch(e){ if(e.name !== 'AbortError') toast('Could not share: ' + e.message); }
+        break; }
+      case 'print': {
+        const w = window.open('', '_blank');
+        if(!w) return toast('Allow pop-ups to print the job sheet');
+        w.document.write(accountsSheetHtml(job)); w.document.close();
+        setTimeout(() => { w.focus(); w.print(); }, 300);
+        mark(); break; }
+      case 'csv': {
+        const url = URL.createObjectURL(new Blob([accountsCsv(job)], {type:'text/csv;charset=utf-8'}));
+        const l = Object.assign(document.createElement('a'), {href:url, download:`${fname}.csv`});
+        document.body.appendChild(l); l.click(); l.remove(); setTimeout(() => URL.revokeObjectURL(url), 5000);
+        mark(); break; }
+    }
   };
   dlg.showModal();
 }
@@ -1756,6 +1922,7 @@ app.addEventListener('click', async e => {
       if(!Object.keys(patch).length) break;
       act(() => B().updateJob(id, patch)); break; }
     case 'invoiced': act(() => B().updateJob(id, {status:'invoiced', invoicedAt:Date.now(), ...touch()})); break;
+    case 'accounts': openAccountsDialog(job); break;
     case 'reopen': act(() => B().updateJob(id, {status:'ready', ...touch()})); break;
     case 'del-job':
       if(confirm(`Delete ${job.customer}'s job permanently? This can't be undone.`)) act(() => B().removeJob(id)); break;
@@ -1790,7 +1957,7 @@ app.addEventListener('keydown', e => {
 function tvCard(job){
   const s = stats(job), shown = s.items.slice(0, TV_MAX_ITEMS);
   return `<div class="tcard s-${esc(job.status)}">
-    <div class="thead"><div class="tname">${esc(job.customer)}</div><div class="pill">${esc(STATUSES[job.status]?.label||job.status)}</div></div>
+    <div class="thead"><div class="tname">${esc(job.customer)}${jobNoOf(job) ? ` <span class="tno">${jobNoOf(job)}</span>` : ''}</div><div class="pill">${esc(STATUSES[job.status]?.label||job.status)}</div></div>
     ${job.bike?`<div class="tbike">${makeBadge(job.bike,'tv')} ${esc(job.bike)}</div>`:''}
     ${job.createdAt?`<div class="tin">In since ${esc(fmtStamp(job.createdAt))} · ${esc(ago(job.createdAt))}</div>`:''}
     ${job.due?`<div class="tdue due ${dueClass(job.due)}">Wanted by ${esc(fmtDate(job.due))}${dueLabel(job.due)}</div>`:''}
@@ -1847,6 +2014,16 @@ function fitTV(){
 /* =====================================================================
    RENDER + BOOT
    ===================================================================== */
+// Jobs booked before job numbers existed (or saved while a number couldn't be given) get one, oldest first
+let numbering = false;
+async function numberOldJobs(){
+  if(numbering || !state.staff || !B().numberJobs) return;
+  const todo = Object.values(state.jobs).filter(j => !j.jobNo).sort((a,b) => (a.createdAt||0) - (b.createdAt||0));
+  if(!todo.length) return;
+  numbering = true;
+  try{ await B().numberJobs(todo.slice(0, 400)); }catch(e){ console.warn('Could not number older jobs yet', e); }
+  setTimeout(() => numbering = false, 15000);
+}
 function render(){
   if(VIEW === 'tv'){
     app.innerHTML = renderTV(); tickClock(); fitTV();
@@ -1883,6 +2060,7 @@ function startBoard(){
   if(state.staff){
     unsubJobs = B().subscribeJobs({all:true}, jobs => {
       clearTimeout(loadTimer); state.err = null; state.jobs = jobs; state.loaded = true; render();
+      numberOldJobs();
     }, onState);
     return;
   }
