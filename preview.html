@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Enduroworx · new layout preview</title>
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
+<style>
+/* PREVIEW of the WorkshopHQ-style layout. READ-ONLY: this page never writes to the database.
+   All changes are made in the main app (index.html). */
+:root{--ink:#111827;--mut:#4B5563;--line:#E5E7EB;--bg:#F3F4F6;--card:#fff;--nav:#0E1116;--blue:#2563EB;--blue2:#3B82F6}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 Inter,system-ui,sans-serif}
+a{color:#1D4ED8}
+h1,h2,.num,.brand{font-family:'Space Grotesk',Inter,sans-serif}
+.preview{background:#F59E0B;color:#111827;font-weight:600;font-size:13px;padding:8px 16px;text-align:center}
+.shell{display:flex;flex-wrap:wrap;min-height:calc(100vh - 36px)}
+nav{flex:1 1 220px;max-width:240px;background:var(--nav);color:#D1D5DB;padding:22px 14px;display:flex;flex-direction:column;gap:4px}
+.brand{font-weight:700;font-size:22px;letter-spacing:1px;color:#fff;padding:0 12px 20px}.brand span{color:var(--blue2)}
+nav a{color:#D1D5DB;text-decoration:none;padding:11px 12px;border-radius:8px;font-size:14px}
+nav a.on{background:#1F2937;color:#fff;font-weight:600}
+nav .foot{margin-top:auto;padding:12px;font-size:12px;color:#9CA3AF}
+nav .foot button{background:none;border:0;color:#93C5FD;padding:0;font:inherit;cursor:pointer}
+main{flex:999 1 560px;min-width:0;padding:26px 30px;display:flex;flex-direction:column;gap:20px}
+.top{display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+h1{margin:0;font-size:28px}.sub{color:var(--mut);font-size:14px}
+.btn{display:inline-flex;align-items:center;height:44px;padding:0 16px;border-radius:8px;border:1px solid #D1D5DB;background:#fff;color:var(--ink);font:600 14px Inter,sans-serif;text-decoration:none;cursor:pointer}
+.btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+input[type=search]{height:44px;border:1px solid #D1D5DB;border-radius:8px;padding:0 12px;font:14px Inter,sans-serif;min-width:240px;background:#fff}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:14px}
+.tile{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px 18px}
+.tile .l{font-size:13px;color:var(--mut)}.tile .num{font-size:34px;font-weight:700;line-height:1.2}.tile .s{font-size:12px;color:var(--mut)}
+.tile.amber{background:#FFFBEB;border-color:#FCD34D}.tile.orange{background:#FFF7ED;border-color:#FDBA74}.tile.green{background:#F0FDF4;border-color:#86EFAC}.tile.red{background:#FEF2F2;border-color:#FCA5A5}
+.cols{display:flex;flex-wrap:wrap;gap:20px;align-items:flex-start}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px}
+.panel.pad{padding:18px 20px}.panel h2{margin:0 0 12px;font-size:16px}
+.bar{display:flex;flex-wrap:wrap;gap:12px;justify-content:space-between;align-items:center;padding:12px 18px;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:4px;background:var(--bg);border-radius:8px;padding:4px}
+.tabs button,.seg button{height:36px;padding:0 14px;border:0;border-radius:6px;background:transparent;color:var(--mut);font:14px Inter,sans-serif;cursor:pointer}
+.tabs button.on{background:#fff;color:var(--ink);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.seg{display:flex;border:1px solid #D1D5DB;border-radius:8px;overflow:hidden}.seg button{border-radius:0;background:#fff}.seg button.on{background:#111827;color:#fff;font-weight:600}
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:680px}
+th{text-align:left;color:var(--mut);font-size:12px;text-transform:uppercase;letter-spacing:.5px;padding:11px 12px}
+td{padding:13px 12px;border-top:1px solid #F3F4F6}
+th:first-child,td:first-child{padding-left:18px}
+tr.row{cursor:pointer}tr.row:hover{background:#F9FAFB}
+.jn{font-weight:700;white-space:nowrap}.od{color:#B91C1C;font-weight:600}.soon{font-weight:700}
+.pill{display:inline-block;padding:3px 10px;border-radius:12px;font-size:12px;font-weight:600;white-space:nowrap}
+.p-booked{background:#F3F4F6;color:#374151;border:1px solid #D1D5DB}.p-in_progress{background:#DBEAFE;color:#1E3A8A}
+.p-waiting_parts{background:#FFEDD5;color:#7C2D12}.p-ready{background:#DCFCE7;color:#14532D}
+.p-collected{background:#E0E7FF;color:#312E81}.p-invoiced{background:#E5E7EB;color:#374151}
+.req{background:#FEF3C7;color:#78350F}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px;padding:16px}
+.gcard{border:1px solid var(--line);border-radius:10px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;background:#fff}
+.gcard:hover{border-color:#93C5FD}
+.track{height:6px;background:#E5E7EB;border-radius:3px}.track i{display:block;height:6px;background:var(--blue);border-radius:3px}
+.list{display:flex;flex-direction:column;gap:10px}
+.mini{border:1px solid var(--line);border-radius:8px;padding:10px 12px;cursor:pointer}.mini b{display:block}.mini span{color:var(--mut);font-size:13px}
+.empty{color:var(--mut);padding:18px}
+.hero{background:var(--nav);color:#fff;border-radius:14px;padding:22px 26px;display:flex;flex-wrap:wrap;gap:20px;justify-content:space-between;align-items:center}
+.hero h1{font-size:28px}.hero .sub{color:#D1D5DB}.hero .k{font-size:12px;color:#9CA3AF}.hero .v{font-size:18px;font-weight:700}
+.item{display:flex;gap:12px;align-items:flex-start;padding:10px 12px;border-radius:8px;border:1px solid var(--line)}
+.item.done{background:#F0FDF4;border-color:#BBF7D0}.item.new{background:#FFFBEB;border-color:#FCD34D}
+.ck{width:20px;height:20px;border-radius:5px;border:2px solid #9CA3AF;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:#fff;margin-top:1px}
+.done .ck{background:#16A34A;border-color:#16A34A}
+.item .t{flex:1}.item .by{display:block;font-size:12px;color:var(--mut)}.amt{font-weight:600;white-space:nowrap}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:5px 0}
+.tot{border-top:1px solid var(--line);margin-top:6px;padding-top:10px;font-weight:700;font-size:17px}
+.msg{padding:8px 10px;border-radius:8px;background:#F9FAFB}.msg.cust{background:#EFF6FF}.msg .w{font-size:12px;color:var(--mut)}
+ol.tl{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font-size:13px}
+.login{max-width:380px;margin:60px auto;background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;display:flex;flex-direction:column;gap:12px}
+.login input{height:44px;border:1px solid #D1D5DB;border-radius:8px;padding:0 12px;font:14px Inter,sans-serif}
+.err{color:#B91C1C;font-size:13px}
+@media(max-width:700px){nav{max-width:none;flex-direction:row;flex-wrap:wrap;padding:12px}.brand{padding:6px 12px;width:100%}nav .foot{margin:0}main{padding:18px 14px}input[type=search]{min-width:0;width:100%}}
+</style>
+</head>
+<body>
+<div class="preview">PREVIEW of the new layout · read-only, live data · make changes in the <a href="./">main app</a></div>
+<div id="app"><p class="empty">Loading…</p></div>
+<script type="module">
+/* READ-ONLY by design: only reading functions are imported from Firestore below.
+   There is no setDoc / addDoc / updateDoc / deleteDoc / transaction anywhere in this file. */
+const FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBsCDTIzTbnEMqJgrx6IvLUDUKZkqSDjG8",
+  authDomain: "enduroworx-jobs.firebaseapp.com",
+  projectId: "enduroworx-jobs",
+  storageBucket: "enduroworx-jobs.firebasestorage.app",
+  messagingSenderId: "496417759563",
+  appId: "1:496417759563:web:5bb641a544d6ddf7c608ce"
+};
+const PREFIX = "EW";
+const STATUSES = {booked:"Booked in", in_progress:"In progress", waiting_parts:"Waiting for parts", ready:"Ready for collection", collected:"Collected", invoiced:"Invoiced"};
+const WORK = ['booked','in_progress','waiting_parts'], TO_INVOICE = ['ready','collected'];
+
+const base = 'https://www.gstatic.com/firebasejs/10.12.2/';
+const [{initializeApp}, A, F] = await Promise.all([import(base+'firebase-app.js'), import(base+'firebase-auth.js'), import(base+'firebase-firestore.js')]);
+const fb = initializeApp(FIREBASE_CONFIG);           // same app as the main site, so a staff sign-in there carries over
+const auth = A.getAuth(fb), db = F.getFirestore(fb);
+const {collection, query, where, onSnapshot} = F;    // the only Firestore functions used
+
+const app = document.getElementById('app');
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money = n => 'R ' + (Math.round((n||0)*100)/100).toLocaleString('en-ZA',{minimumFractionDigits:(n%1)?2:0,maximumFractionDigits:2});
+const TZ = 'Africa/Johannesburg';
+const today = () => new Date().toLocaleDateString('en-CA',{timeZone:TZ});
+const daysTo = d => Math.round((new Date(d) - new Date(today())) / 864e5);
+const fmtDate = d => { if(!d) return ''; const n = daysTo(d); if(n===0) return 'Today'; if(n===1) return 'Tomorrow'; const x=new Date(d+'T00:00'); return isNaN(x)?d:x.toLocaleDateString('en-ZA',{weekday:'short',day:'numeric',month:'short'}); };
+const fmtStamp = ms => ms ? new Date(ms).toLocaleString('en-ZA',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit',hour12:false,timeZone:TZ}) : '';
+const jobNo = j => j.jobNo ? `${PREFIX}-${j.jobNo}` : '—';
+const itemsOf = j => Object.entries(j.items||{}).map(([id,it])=>({id,...it})).sort((a,b)=>(a.t||0)-(b.t||0));
+const partsOf = j => Object.entries(j.parts||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.t||0)-(b.t||0));
+const notesOf = j => Object.values(j.notesLog||{}).sort((a,b)=>(a.t||0)-(b.t||0));
+const partLine = p => (+p.qty||1)*(+p.price||0);
+const isCust = (it,j) => it.fromCustomer === true || (it.fromCustomer === undefined && !!it.by && it.by === j.customer);
+const newReqs = j => itemsOf(j).filter(it => isCust(it,j) && it.seen !== true && !it.done);
+const stats = j => { const items = itemsOf(j), parts = partsOf(j), done = items.filter(i=>i.done);
+  const work = items.reduce((s,i)=>s+(+i.cost||0),0), pt = parts.reduce((s,p)=>s+partLine(p),0);
+  return {items, parts, done:done.length, total:items.length, work, pt, est:work+pt, pct: items.length ? Math.round(done.length/items.length*100) : 0}; };
+const byDue = (a,b) => (a.due?0:1)-(b.due?0:1) || (a.due||'').localeCompare(b.due||'') || (a.createdAt||0)-(b.createdAt||0);
+const pill = st => `<span class="pill p-${esc(st)}">${esc(STATUSES[st]||st)}</span>`;
+const dueCell = j => { if(!j.due) return '<span class="sub">—</span>'; const n = daysTo(j.due), open = WORK.includes(j.status)||j.status==='ready';
+  return `<span class="${open&&n<0?'od':open&&n<=1?'soon':''}">${esc(fmtDate(j.due))}${open&&n<0?' · overdue':''}</span>`; };
+
+const S = {user:null, jobs:{}, err:null, tab:'open', layout:'list', q:'', log:{}, logSub:null, logFor:null};
+try { S.layout = localStorage.getItem('preview.layout') || 'list'; } catch {}
+
+let unsub = null;
+A.onAuthStateChanged(auth, u => {
+  S.user = u && !u.isAnonymous ? u : null;
+  unsub && unsub(); unsub = null; S.jobs = {}; S.err = null;
+  if(S.user) unsub = onSnapshot(collection(db,'jobs'), snap => { const o = {}; snap.forEach(d => o[d.id] = {...d.data(), id:d.id}); S.jobs = o; S.loaded = true; render(); },
+                                err => { S.err = err.code === 'permission-denied' ? 'This account is not on the staff list, so it can’t see the jobs.' : err.message; render(); });
+  render();
+});
+addEventListener('hashchange', render);
+
+function render(){
+  if(!S.user) return renderLogin();
+  const m = location.hash.match(/^#job\/(.+)$/);
+  const page = m ? jobPage(S.jobs[decodeURIComponent(m[1])]) : dashboard();
+  app.innerHTML = `<div class="shell">${navHtml(m?'job':'dash')}<main>${S.err?`<p class="err">${esc(S.err)}</p>`:''}${S.loaded||S.err?page:'<p class="empty">Loading jobs…</p>'}</main></div>`;
+}
+function navHtml(on){
+  return `<nav aria-label="Main"><div class="brand">ENDURO<span>WORX</span></div>
+    <a href="#" class="${on==='dash'?'on':''}">Workshop control</a>
+    ${on==='job'?'<a href="#" class="on">Job card</a>':''}
+    <a href="./">Main app ↗</a>
+    <div class="foot">${esc(S.user.email||'')}<br><button id="out">Sign out</button></div></nav>`;
+}
+
+function dashboard(){
+  const all = Object.values(S.jobs);
+  const open = all.filter(j => WORK.includes(j.status)), toInv = all.filter(j => TO_INVOICE.includes(j.status)), inv = all.filter(j => j.status==='invoiced');
+  const dueNow = open.filter(j => j.due && daysTo(j.due) <= 0);
+  const parts = all.filter(j => j.status==='waiting_parts'), ready = all.filter(j => j.status==='ready');
+  const reqJobs = all.filter(j => newReqs(j).length);
+  const list = {open, toinv:toInv, inv}[S.tab].filter(match).sort(S.tab==='inv' ? (a,b)=>(b.invoicedAt||0)-(a.invoicedAt||0) : byDue);
+  const coming = all.filter(j => j.status==='booked').sort(byDue).slice(0,5);
+  const dateLine = new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long',timeZone:TZ});
+  return `<div class="top"><div><h1>Workshop control</h1><div class="sub">${esc(dateLine)}</div></div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap"><input type="search" id="q" placeholder="Search bike, customer or job no." value="${esc(S.q)}" aria-label="Search">
+      <a class="btn pri" href="./">+ New booking (main app)</a></div></div>
+    <div class="tiles">
+      <div class="tile"><div class="l">Open jobs</div><div class="num">${open.length}</div><div class="s">${open.filter(j=>j.status==='in_progress').length} in progress · ${open.filter(j=>j.status==='booked').length} booked in</div></div>
+      <div class="tile ${dueNow.length?'red':''}"><div class="l">Due today or overdue</div><div class="num">${dueNow.length}</div><div class="s">${esc(dueNow.slice(0,2).map(jobNo).join(' · ')||'All on track')}</div></div>
+      <div class="tile orange"><div class="l">Waiting for parts</div><div class="num">${parts.length}</div><div class="s">${esc(parts.slice(0,2).map(j=>j.bike||j.customer).join(' · ')||'None')}</div></div>
+      <div class="tile green"><div class="l">Ready for collection</div><div class="num">${ready.length}</div><div class="s">${esc(ready.slice(0,2).map(j=>j.customer).join(' · ')||'None')}</div></div>
+      <div class="tile amber"><div class="l">New customer requests</div><div class="num">${reqJobs.reduce((s,j)=>s+newReqs(j).length,0)}</div><div class="s">${reqJobs.length} job${reqJobs.length===1?'':'s'}</div></div>
+    </div>
+    <div class="cols">
+      <section class="panel" style="flex:3 1 560px;min-width:0">
+        <div class="bar"><div class="tabs" role="tablist">
+            <button role="tab" data-tab="open" class="${S.tab==='open'?'on':''}">Open · ${open.length}</button>
+            <button role="tab" data-tab="toinv" class="${S.tab==='toinv'?'on':''}">To invoice · ${toInv.length}</button>
+            <button role="tab" data-tab="inv" class="${S.tab==='inv'?'on':''}">Invoiced · ${inv.length}</button></div>
+          <div style="display:flex;gap:10px;align-items:center" class="sub">${S.tab==='inv'?'Newest first':'Sorted by due date'}
+            <div class="seg"><button data-layout="list" class="${S.layout==='list'?'on':''}">List</button><button data-layout="grid" class="${S.layout==='grid'?'on':''}">Grid</button></div></div></div>
+        ${!list.length ? `<p class="empty">No jobs here${S.q?' matching your search':''}.</p>` : S.layout==='grid' ? gridHtml(list) : tableHtml(list)}
+      </section>
+      <aside style="flex:1 1 280px;min-width:0;display:flex;flex-direction:column;gap:16px">
+        <section class="panel pad"><h2>Coming in</h2><div class="list">${coming.length ? coming.map(j => `<div class="mini" data-job="${esc(j.id)}"><b>${esc(j.due?fmtDate(j.due):'No date')} · ${esc(j.bike||'Bike')}</b><span>${esc(j.customer||'')}${itemsOf(j).length?` · ${esc(itemsOf(j).map(i=>i.text).slice(0,2).join(', '))}`:''}</span></div>`).join('') : '<span class="sub">No bikes booked in.</span>'}</div></section>
+        <section class="panel pad"><h2>Needs you</h2><div class="list">${needsYou(all)}</div></section>
+      </aside>
+    </div>`;
+}
+const match = j => !S.q || [j.customer,j.bike,jobNo(j),j.email,j.cell].join(' ').toLowerCase().includes(S.q.toLowerCase());
+function tableHtml(list){
+  return `<div class="scroll"><table><thead><tr><th>Job</th><th>Bike</th><th>Customer</th><th>Due</th><th>Status</th><th>Work</th><th style="text-align:right;padding-right:18px">Estimate</th></tr></thead><tbody>
+    ${list.map(j => { const s = stats(j), r = newReqs(j).length; return `<tr class="row" data-job="${esc(j.id)}" tabindex="0">
+      <td class="jn">${esc(jobNo(j))}</td><td>${esc(j.bike||'')}</td><td>${esc(j.customer||'')}</td><td>${dueCell(j)}</td>
+      <td>${pill(j.status)}${r?` <span class="pill req">${r} new</span>`:''}</td><td>${s.done}/${s.total}</td>
+      <td style="text-align:right;padding-right:18px;font-weight:600">${s.est?money(s.est):'TBC'}</td></tr>`; }).join('')}</tbody></table></div>`;
+}
+function gridHtml(list){
+  return `<div class="grid">${list.map(j => { const s = stats(j); return `<div class="gcard" data-job="${esc(j.id)}" tabindex="0">
+    <div style="display:flex;justify-content:space-between;gap:8px"><span class="jn">${esc(jobNo(j))}</span>${pill(j.status)}</div>
+    <b>${esc(j.customer||'')}</b><span class="sub">${esc(j.bike||'')}</span><span class="sub">Due ${dueCell(j)}</span>
+    <div class="track"><i style="width:${s.pct}%"></i></div><span class="sub">${s.done}/${s.total} done · ${s.est?money(s.est):'TBC'}</span></div>`; }).join('')}</div>`;
+}
+function needsYou(all){
+  const out = [];
+  all.filter(j => newReqs(j).length).forEach(j => out.push([j, `${j.customer||'Customer'} added: ${newReqs(j).map(i=>i.text).join(', ')}`]));
+  all.filter(j => WORK.includes(j.status) && j.due && daysTo(j.due) < 0).forEach(j => out.push([j, `${jobNo(j)} ${j.bike||''} is overdue (wanted ${fmtDate(j.due)})`]));
+  all.filter(j => j.status==='collected').forEach(j => out.push([j, `${jobNo(j)} collected, not invoiced yet`]));
+  return out.length ? out.slice(0,8).map(([j,t]) => `<div class="mini" data-job="${esc(j.id)}"><span style="color:var(--ink)">${esc(t)}</span></div>`).join('') : '<span class="sub">Nothing waiting on you.</span>';
+}
+
+function jobPage(j){
+  if(!j) return `<p class="empty">That job wasn’t found. <a href="#">Back to the dashboard</a></p>`;
+  if(S.logFor !== j.id){ S.logSub && S.logSub(); S.log = []; S.logFor = j.id;
+    S.logSub = onSnapshot(query(collection(db,'log'), where('jobId','==',j.id)), snap => { const a = []; snap.forEach(d => a.push(d.data())); S.log = a.sort((x,y)=>(x.at||0)-(y.at||0)); render(); }, () => {}); }
+  const s = stats(j), notes = notesOf(j), r = newReqs(j).length;
+  return `<div class="sub"><a href="#">Workshop control</a> / ${esc(jobNo(j))}</div>
+  <section class="hero"><div><div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span style="color:#93C5FD;font-weight:700">${esc(jobNo(j))}</span>${pill(j.status)}${r?` <span class="pill req">${r} new request${r>1?'s':''}</span>`:''}</div>
+      <h1 style="margin:6px 0 2px">${esc(j.bike||'Bike')}</h1><div class="sub">${esc([j.customer, j.cell, j.email].filter(Boolean).join(' · '))}</div></div>
+    <div style="display:flex;gap:26px;flex-wrap:wrap">
+      <div><div class="k">Wanted by</div><div class="v">${esc(j.due?fmtDate(j.due):'—')}</div></div>
+      <div><div class="k">Booked in</div><div class="v">${esc(fmtStamp(j.createdAt)||'—')}</div></div>
+      <div><div class="k">Estimate</div><div class="v">${s.est?money(s.est):'TBC'}</div></div></div></section>
+  <div style="display:flex;gap:10px;flex-wrap:wrap"><a class="btn pri" href="./?job=${encodeURIComponent(j.id)}">Edit in main app</a>${j.cell?`<a class="btn" href="https://wa.me/${esc(String(j.cell).replace(/\D/g,''))}" target="_blank" rel="noopener">WhatsApp ${esc((j.customer||'').split(' ')[0])}</a>`:''}</div>
+  <div class="cols">
+    <div style="flex:3 1 480px;min-width:0;display:flex;flex-direction:column;gap:18px">
+      ${j.notes?`<section class="panel pad"><h2>Customer’s words</h2><p style="margin:0">${esc(j.notes)}</p></section>`:''}
+      <section class="panel pad"><h2>Work · ${s.done} of ${s.total} done</h2><div class="track" style="margin-bottom:12px"><i style="width:${s.pct}%"></i></div>
+        <div class="list">${s.items.length ? s.items.map(it => { const nw = isCust(it,j) && it.seen!==true && !it.done; return `<div class="item ${it.done?'done':''} ${nw?'new':''}"><span class="ck" aria-label="${it.done?'Done':'Not done'}">${it.done?'✓':''}</span>
+          <span class="t">${esc(it.text)}<span class="by">${isCust(it,j)?'Customer request':''}${it.by?`${isCust(it,j)?' · ':''}added by ${esc(it.by)}`:''}${it.done&&it.doneBy?` · done by ${esc(it.doneBy)}`:''}</span></span>
+          <span class="amt">${it.cost?money(it.cost):'—'}</span></div>`; }).join('') : '<span class="sub">No work items yet.</span>'}</div></section>
+      <section class="panel pad"><h2>Parts</h2>${s.parts.length ? s.parts.map(p => `<div class="kv"><span>${+p.qty||1} × ${esc(p.name)}${p.partNo?` <span class="sub">${esc(p.partNo)}</span>`:''}</span><b>${p.price?money(partLine(p)):'TBC'}</b></div>`).join('') : '<span class="sub">No parts added.</span>'}</section>
+      <section class="panel pad"><h2>${j.status==='invoiced'?'Invoice':'Invoice preview'}</h2>
+        ${s.items.filter(i=>i.done).map(i => `<div class="kv"><span>${esc(i.text)}</span><span>${money(+i.cost||0)}</span></div>`).join('')}
+        ${s.parts.map(p => `<div class="kv"><span>${+p.qty||1} × ${esc(p.name)}</span><span>${money(partLine(p))}</span></div>`).join('')}
+        ${s.items.some(i=>!i.done)?`<div class="kv sub"><span>Not done yet, not on invoice: ${esc(s.items.filter(i=>!i.done).map(i=>i.text).join(', '))}</span></div>`:''}
+        <div class="kv tot"><span>Total</span><span>${money(s.items.filter(i=>i.done).reduce((a,i)=>a+(+i.cost||0),0) + s.pt)}</span></div>
+        <div class="sub">No VAT: Enduroworx isn’t VAT registered.</div></section>
+    </div>
+    <aside style="flex:2 1 300px;min-width:0;display:flex;flex-direction:column;gap:18px">
+      <section class="panel pad"><h2>Notes</h2><div class="list">${notes.length ? notes.map(n => `<div class="msg ${n.staff?'':'cust'}"><div class="w">${esc(fmtStamp(n.t))} · ${esc(n.by||'')}</div>${esc(n.text)}</div>`).join('') : '<span class="sub">No notes.</span>'}</div></section>
+      <section class="panel pad"><h2>Timeline</h2>${S.log.length ? `<ol class="tl">${S.log.map(e => `<li><b>${esc(fmtStamp(e.at))}</b> · ${esc(e.who||'')}: ${esc(e.summary||'')}</li>`).join('')}</ol>` : '<span class="sub">No history yet.</span>'}</section>
+    </aside>
+  </div>`;
+}
+
+function renderLogin(){
+  app.innerHTML = `<form class="login" id="lf"><div class="brand" style="color:var(--ink);padding:0">ENDURO<span>WORX</span></div>
+    <div class="sub">Staff sign-in for the layout preview. If you’re signed in to the main app on this device, this happens automatically.</div>
+    <label>Email<br><input type="email" id="em" autocomplete="username" required style="width:100%"></label>
+    <label>Password<br><input type="password" id="pw" autocomplete="current-password" required style="width:100%"></label>
+    <button class="btn pri" type="submit">Sign in</button><div class="err" id="le"></div>
+    <a href="./" class="sub">Back to the main app</a></form>`;
+  document.getElementById('lf').onsubmit = async e => { e.preventDefault();
+    try{ await A.signInWithEmailAndPassword(auth, document.getElementById('em').value.trim().toLowerCase(), document.getElementById('pw').value); }
+    catch(err){ document.getElementById('le').textContent = 'Wrong email or password.'; } };
+}
+
+app.addEventListener('click', e => {
+  const t = e.target.closest('[data-tab],[data-layout],[data-job],#out'); if(!t) return;
+  if(t.id === 'out') return A.signOut(auth);
+  if(t.dataset.tab){ S.tab = t.dataset.tab; render(); }
+  else if(t.dataset.layout){ S.layout = t.dataset.layout; try{ localStorage.setItem('preview.layout', S.layout); }catch{} render(); }
+  else if(t.dataset.job){ location.hash = '#job/' + encodeURIComponent(t.dataset.job); scrollTo(0,0); }
+});
+app.addEventListener('keydown', e => { if(e.key==='Enter' && e.target.dataset?.job){ location.hash = '#job/' + encodeURIComponent(e.target.dataset.job); } });
+app.addEventListener('input', e => { if(e.target.id==='q'){ S.q = e.target.value; const pos = e.target.selectionStart; render(); const q = document.getElementById('q'); q.focus(); q.setSelectionRange(pos,pos); } });
+</script>
+</body>
+</html>
