@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{db}/documents {
 
     // ---- Staff: must match STAFF in index.html (email lower case, cell as +27…) ----
-    function staffList() { return ['erik@enduroworx.co.za', '+27832716949', 'shannon@manapp.co.za']; }
+    function staffList() { return ['erik@enduroworx.co.za', '+27832716949', 'shannon@manapp.co.za', 'nathan@enduroworx.co.za']; }
 
     // Nightly GitHub backup: read-only, can't change anything
     function backupList() { return ['enduroworx@manapp.co.za']; }

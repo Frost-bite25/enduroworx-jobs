@@ -185,6 +185,23 @@
   .notyet u{color:#ffd77a}
   .nmsg{width:100%;min-height:150px;resize:vertical;font:inherit;font-size:14px;line-height:1.45;background:var(--bg);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
   .btn.wa{background:#1f7a3f;border-color:#25a457;color:#fff;font-weight:600}
+  .mgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;padding:4px 12px 8px}
+  .mthumb{position:relative;padding:0;border:0;border-radius:8px;overflow:hidden;aspect-ratio:1;background:var(--bg);cursor:zoom-in}
+  .mthumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .mplay{position:absolute;inset:0;display:grid;place-items:center}
+  .mtag{position:absolute;left:4px;right:4px;bottom:4px;font-size:10.5px;background:#000b;color:#fff;border-radius:5px;padding:2px 5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+  .madd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:6px 12px 12px} .madd .hint{margin:0}
+  details.mediap.drop{outline:2px dashed #0505f0;outline-offset:-2px}
+  #lbox{position:fixed;inset:0;z-index:100;background:#000e;display:none;flex-direction:column}
+  #lbox.on{display:flex} html.lbopen,html.lbopen body{overflow:hidden}
+  .lbtop{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;color:#ddd;font-size:14px}
+  .lbtop button{background:#ffffff1a;border:0;color:#fff;border-radius:8px;padding:8px 12px;margin-left:8px;font-size:14px;cursor:pointer}
+  .lbstage{flex:1;display:grid;place-items:center;min-height:0;padding:0 8px}
+  .lbstage img,.lbstage video{max-width:calc(100vw - 130px);max-height:calc(100vh - 130px);max-height:calc(100dvh - 130px);object-fit:contain;border-radius:6px}
+  @media (max-width:600px){ .lbstage img,.lbstage video{max-width:100vw} .lbnav{display:none} }
+  .lbcap{color:#ccc;font-size:13px;text-align:center;padding:10px 14px 16px}
+  .lbnav{position:absolute;top:50%;transform:translateY(-50%);background:#ffffff1f;border:0;color:#fff;font-size:34px;width:46px;height:64px;border-radius:10px;cursor:pointer}
+  .lbnav.l{left:10px} .lbnav.r{right:10px}
   .accbtns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px} .accbtns .btn{flex:1 1 140px;justify-content:center}
   .invbar .qbbtn{margin-left:auto;display:inline-flex;margin-top:6px;background:#1a2a1a;border-color:#2f6b3a;color:#bff0c8}
   .qblist{list-style:none;margin:0 0 12px;padding:0;max-height:45vh;overflow:auto}
@@ -454,7 +471,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.9.0";
+const APP_VERSION = "2.10.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -471,7 +488,13 @@ const QB = {
 
 // Staff logins (Erik, plus anyone helping him). Email in lower case, cell numbers as +27…
 // These must ALSO be listed in staffList() in the Firestore rules.
-const STAFF = ["erik@enduroworx.co.za", "+27832716949", "shannon@manapp.co.za"];
+const STAFF = ["erik@enduroworx.co.za", "+27832716949", "shannon@manapp.co.za", "nathan@enduroworx.co.za"];
+// Each staff member's fixed name (shown on items, notes, history). Not editable in the app.
+const STAFF_NAMES = {
+  "erik@enduroworx.co.za": "Erik Klootwyk", "+27832716949": "Erik Klootwyk",
+  "shannon@manapp.co.za": "Shannon",
+  "nathan@enduroworx.co.za": "Nathan",
+};
 
 // Riding forecast (Open-Meteo, free, no key). Point it at the trails if you prefer.
 const WEATHER = {lat:-34.0527, lon:23.3716, place:"Plett"};
@@ -499,6 +522,8 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.9.1","25 Nov","Nathan added as staff; staff names fixed (no Change name)"],
+  ["2.10.0","24 Nov","Photos and videos on each job"],
   ["2.9.0","24 Nov","One-tap customer updates on WhatsApp or email when a job is booked in, waiting for parts or ready"],
   ["2.8.0","24 Nov","Jobs, Customers and Activity now a clear page bar with icons"],
   ["2.7.4","24 Nov","Clearer \"Wanted by\" date with quick picks (Tomorrow, In a week…)"],
@@ -586,6 +611,7 @@ const showContact = k => /^\+27\d{9}$/.test(k||'') ? ('0' + k.slice(3)).replace(
 const isEmail = s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s);
 const isPhone = s => /^\+\d{9,15}$/.test(s);
 const STAFF_KEYS = STAFF.map(normContact);
+const staffNameFor = user => { for(const k of [user?.email, user?.phone].filter(Boolean)){ const n = STAFF_NAMES[normContact(k)] || STAFF_NAMES[k]; if(n) return n; } return ''; };
 // Timestamp → "Mon 23 Nov, 13:57" (SA time), plus "today"/"yesterday"/"3 days ago"
 function fmtStamp(ms){
   if(!ms) return '';
@@ -909,7 +935,7 @@ const state = {
   backend:null, phase:'loading',            // loading | login | profile | board
   user:null, profile:null, staff:false, keys:[],
   jobs:{}, loaded:false, online:true, err:null,
-  tab:'open', partsOpen:new Set(), histOpen:new Set(), notesOpen:new Set(), jobLogs:{}, log:null, logErr:null, logKind:'all', expanded:new Set(), view:(() => { try { return {jobs:'grid', customers:'grid', ...JSON.parse(localStorage.getItem('jobboard.view'))}; } catch { return {jobs:'grid', customers:'grid'}; } })(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
+  tab:'open', partsOpen:new Set(), histOpen:new Set(), notesOpen:new Set(), mediaOpen:new Set(), jobLogs:{}, log:null, logErr:null, logKind:'all', expanded:new Set(), view:(() => { try { return {jobs:'grid', customers:'grid', ...JSON.parse(localStorage.getItem('jobboard.view'))}; } catch { return {jobs:'grid', customers:'grid'}; } })(), page:'jobs', custFilter:'all', users:{}, usersErr:null, jobFilter:null, drafts:{}, screens:[], screensErr:null, newScreen:null, weather:null, weatherLocal:null, sharedWeatherAt:0,
   login:{method:'password', step:'enter', value:'', busy:false, confirm:null},
 };
 let unsubJobs = null, unsubScreens = null;
@@ -1083,6 +1109,7 @@ function jobCard(job){
       <button class="btn small" data-act="add-item" data-id="${id}">Add</button>
     </div>` : ''}
     ${notesPanel(job)}
+    ${mediaPanel(job)}
     ${partsPanel(job, s)}
     ${historyPanel(job)}
     <div class="jfoot">
@@ -1136,6 +1163,76 @@ function addNote(id){
   delete state.drafts['n:'+id];
   const by = state.staff ? myName() : (state.jobs[id]?.customer || loadMe().name || '');
   act(() => B().updateJob(id, {[`notesLog.${uid()}`]:{text, by, byUid:state.user.uid, t:Date.now(), staff:!!state.staff}, ...touch()}));
+}
+
+/* ---------- Photos & videos (staff add; customers see) ---------- */
+// Storage: photos are shrunk in the browser before upload. In demo mode they're kept in this browser;
+// the live site will store them in Cloudflare R2 (MEDIA_UPLOAD_URL), so until that's set the Add button is hidden.
+const MEDIA_UPLOAD_URL = "";
+const mediaOk = () => B()?.mode !== 'live' || !!MEDIA_UPLOAD_URL;
+const jobMedia = job => Object.entries(job.media || {}).map(([mid, m]) => ({id:mid, ...m})).filter(m => !m.deleted).sort((a,b) => (a.t||0) - (b.t||0));
+const PLAY_ICON = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#000a"/><path d="M10 8l6 4-6 4z" fill="#fff"/></svg>`;
+function mediaPanel(job){
+  const id = job.id, list = jobMedia(job), staff = state.staff, open = state.mediaOpen.has(id);
+  if(!list.length && !(staff && mediaOk())) return '';
+  const nP = list.filter(m => m.type !== 'video').length, nV = list.length - nP;
+  const sum = list.length ? [nP && `<b>${nP}</b> photo${nP===1?'':'s'}`, nV && `<b>${nV}</b> video${nV===1?'':'s'}`].filter(Boolean).join(' · ') : 'none yet';
+  return `<details class="parts mediap" data-id="${id}" ${open?'open':''}>
+    <summary>📷 Photos <span class="psum">${sum}</span></summary>
+    ${list.length ? `<div class="mgrid">${list.map((m,i) => `<button class="mthumb" data-act="media-view" data-id="${id}" data-i="${i}" title="${esc(m.caption||'')}">
+        <img src="${m.thumb || m.url}" alt="${esc(m.caption||'Photo')}" loading="lazy">${m.type==='video' ? `<span class="mplay">${PLAY_ICON}</span>` : ''}
+        ${m.itemText ? `<span class="mtag">${esc(m.itemText)}</span>` : ''}</button>`).join('')}</div>` : ''}
+    ${staff && mediaOk() ? `<div class="madd"><label class="btn small">📷 Add photos / videos<input type="file" accept="image/*,video/*" multiple hidden data-media-up="${id}"></label>
+      <span class="hint">From the iPhone: take new or pick from Photos (incl. Meta glasses). On the Mac: drop files here.</span></div>` : ''}
+  </details>`;
+}
+async function shrinkImage(file, max){
+  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = URL.createObjectURL(file); });
+  const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = Object.assign(document.createElement('canvas'), {width:Math.round(img.naturalWidth*k), height:Math.round(img.naturalHeight*k)});
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src);
+  return {url:c.toDataURL('image/jpeg', .8), w:c.width, h:c.height};
+}
+async function uploadMedia(id, files){
+  files = [...files]; if(!files.length) return;
+  let n = 0;
+  for(const f of files){
+    if(f.type.startsWith('video/')){ toast('Videos need the photo storage connected (coming next)'); continue; }
+    if(!f.type.startsWith('image/')) continue;
+    try{
+      const big = await shrinkImage(f, 1600), small = await shrinkImage(f, 360);
+      await B().updateJob(id, {[`media.${uid()}`]:{type:'image', url:big.url, thumb:small.url, w:big.w, h:big.h, by:myName(), byUid:state.user.uid, t:Date.now()}, ...touch()});
+      n++;
+    }catch(e){ toast('Could not add a photo: ' + e.message); }
+  }
+  if(n) toast(`${n} photo${n===1?'':'s'} added`);
+}
+let lb = null;
+function openLightbox(id, i){
+  const list = jobMedia(state.jobs[id]); if(!list.length) return;
+  lb = {id, i:Math.max(0, Math.min(i, list.length-1))};
+  let el = document.getElementById('lbox');
+  if(!el){ el = Object.assign(document.createElement('div'), {id:'lbox'}); document.body.appendChild(el);
+    el.addEventListener('click', e => { const a = e.target.closest('[data-lb]')?.dataset.lb;
+      if(a === 'prev') lbGo(-1); else if(a === 'next') lbGo(1); else if(a === 'close' || e.target === el) closeLightbox();
+      else if(a === 'del'){ const m = jobMedia(state.jobs[lb.id])[lb.i];
+        if(m && confirm('Move this to the bin? It can be restored for 30 days.')){ act(() => B().updateJob(lb.id, {[`media.${m.id}.deleted`]:Date.now(), [`media.${m.id}.deletedBy`]:myName(), ...touch()})); closeLightbox(); } } });
+    let x0 = null; el.addEventListener('touchstart', e => x0 = e.touches[0].clientX, {passive:true});
+    el.addEventListener('touchend', e => { if(x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if(Math.abs(dx) > 50) lbGo(dx < 0 ? 1 : -1); x0 = null; });
+    document.addEventListener('keydown', e => { if(!lb) return; if(e.key === 'Escape') closeLightbox(); if(e.key === 'ArrowRight') lbGo(1); if(e.key === 'ArrowLeft') lbGo(-1); });
+  }
+  drawLightbox();
+}
+function lbGo(d){ const n = jobMedia(state.jobs[lb.id]).length; lb.i = (lb.i + d + n) % n; drawLightbox(); }
+function closeLightbox(){ lb = null; const el = document.getElementById('lbox'); if(el) el.classList.remove('on'); document.documentElement.classList.remove('lbopen'); }
+function drawLightbox(){
+  const job = state.jobs[lb.id], list = jobMedia(job), m = list[lb.i], el = document.getElementById('lbox');
+  el.innerHTML = `<div class="lbtop"><span>${esc(job.customer||'')}${jobNoOf(job) ? ` · ${jobNoOf(job)}` : ''} · ${lb.i+1} of ${list.length}</span>
+      <span>${state.staff ? `<button data-lb="del">🗑 Delete</button>` : ''}<button data-lb="close" aria-label="Close">✕</button></span></div>
+    <div class="lbstage">${m.type==='video' ? `<video src="${m.url}" poster="${m.thumb||''}" controls playsinline></video>` : `<img src="${m.url}" alt="">`}</div>
+    <div class="lbcap">${m.itemText ? `<b>${esc(m.itemText)}</b> · ` : ''}${esc(m.caption||'')}${m.caption?' · ':''}${esc(m.by||'')} · ${esc(fmtStamp(m.t))}</div>
+    ${list.length > 1 ? `<button class="lbnav l" data-lb="prev" aria-label="Previous">‹</button><button class="lbnav r" data-lb="next" aria-label="Next">›</button>` : ''}`;
+  el.classList.add('on'); document.documentElement.classList.add('lbopen');
 }
 
 /* ---------- Parts used (staff edit, customers see) ---------- */
@@ -1294,6 +1391,9 @@ function describeChange(job, patch){
   for(const [k, v] of Object.entries(patch)){
     if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo','qbExportedBy'].includes(k)) continue;
     if(k === 'qbExportedAt'){ out.push('Exported to QuickBooks CSV'); continue; }
+    if(/^media\.[^.]+\.deleted$/.test(k)){ out.push('Moved a photo to the bin'); continue; }
+    if(/^media\.[^.]+$/.test(k)){ if(!(v && v.__del)) out.push(v.type === 'video' ? 'Added a video' : 'Added a photo'); continue; }
+    if(/^media\.[^.]+\.deletedBy$/.test(k)) continue;
     if(k === 'lastNotified'){ out.push(`Told customer “${STATUSES[v.status]?.label || v.status}” via ${v.via}`); continue; }
     if(k === 'sentToAccountsAt'){ out.push(`Sent to accounts${patch.sentToAccountsBy ? ` (${patch.sentToAccountsBy})` : ''}`); continue; }
     const del = v && v.__del; let m;
@@ -1649,7 +1749,6 @@ function renderBoard(){
     </div>
     ${state.staff ? `<div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
       <span class="tag">STAFF</span>
-      <button class="linkbtn" data-act="rename">Change name</button>
       <button class="linkbtn" data-act="signout">Sign out</button></div>`
     : state.user && !state.user.anon ? `<div class="who">Signed in as ${esc(loginAs)} <button class="linkbtn" data-act="signout">Sign out</button></div>` : ''}
     ${demo?`<div class="banner">Demo mode: everything is saved only in this browser.${state.staff?' Sign out to see what customers see.':` Use <b>Staff sign-in</b> at the bottom with ${esc(STAFF[0])} to see Erik's view.`}</div>`:''}
@@ -2133,7 +2232,6 @@ app.addEventListener('click', async e => {
         await B().setProfile(state.user.uid, p); state.profile = {...state.profile, ...p}; startBoard();
       });
       break; }
-    case 'rename': state.phase = 'profile'; render(); break;
     case 'signout': if(confirm('Sign out?')) B().signOut(); break;
     case 'screens': openScreensDialog(); break;
     case 'export': openExportDialog(); break;
@@ -2172,6 +2270,7 @@ app.addEventListener('click', async e => {
     case 'part-price': { const pt = job.parts[b.dataset.part]; const v = prompt(`Price each (${CURRENCY})`, pt.price||''); if(v==null) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.price`]:parseCost(v), ...touch()})); break; }
     case 'add-note': addNote(id); break;
+    case 'media-view': openLightbox(id, +b.dataset.i); break;
     case 'del-note': { if(!state.staff) break; const n = job.notesLog?.[b.dataset.note]; if(n && confirm('Delete this note?')) act(() => B().updateJob(id, {[`notesLog.${b.dataset.note}`]:B().del(), ...touch()})); break; }
     case 'del-part': { const pt = job.parts[b.dataset.part]; if(confirm(`Remove "${pt.name}"?`)) act(() => B().updateJob(id, {[`parts.${b.dataset.part}`]:B().del(), ...touch()})); break; }
     case 'seen-all': {
@@ -2190,6 +2289,7 @@ app.addEventListener('click', async e => {
 });
 app.addEventListener('change', e => {
   const el = e.target, {act:a, id, item} = el.dataset;
+  if(el.dataset.mediaUp){ uploadMedia(el.dataset.mediaUp, el.files); el.value = ''; return; }
   if(a === 'tick') act(() => B().updateJob(id, {[`items.${item}.done`]:el.checked, [`items.${item}.doneBy`]:el.checked?myName():'',
     [`items.${item}.seen`]:true, ...touch()}));
   if(a === 'status'){
@@ -2199,9 +2299,12 @@ app.addEventListener('change', e => {
     if(state.staff && j && NOTIFY_ON.includes(st) && (jobCell(j) || jobEmail(j))) setTimeout(() => openNotify({...j, status:st}), 150);
   }
 });
+app.addEventListener('dragover', e => { const d = e.target.closest?.('details.mediap'); if(d && state.staff){ e.preventDefault(); d.classList.add('drop'); } });
+app.addEventListener('dragleave', e => { e.target.closest?.('details.mediap')?.classList.remove('drop'); });
+app.addEventListener('drop', e => { const d = e.target.closest?.('details.mediap'); if(!d || !state.staff || !mediaOk()) return; e.preventDefault(); d.classList.remove('drop'); uploadMedia(d.dataset.id, e.dataTransfer.files); });
 app.addEventListener('toggle', e => {
   const d = e.target; if(!d.matches?.('details.parts')) return;
-  const set = d.classList.contains('hist') ? state.histOpen : d.classList.contains('notesp') ? state.notesOpen : state.partsOpen;
+  const set = d.classList.contains('hist') ? state.histOpen : d.classList.contains('notesp') ? state.notesOpen : d.classList.contains('mediap') ? state.mediaOpen : state.partsOpen;
   if(d.open === set.has(d.dataset.id)) return;
   d.open ? set.add(d.dataset.id) : set.delete(d.dataset.id);
   if(d.classList.contains('hist')){ if(d.open) watchJobLog(d.dataset.id); render(); }
@@ -2357,7 +2460,14 @@ async function onUser(user){
   state.staff = [user.verified !== false ? user.email : '', user.phone].filter(Boolean).some(k => STAFF_KEYS.includes(k));
   if(state.staff){
     try{ state.profile = await B().getProfile(user.uid); }catch(e){ console.error(e); state.profile = null; }
-    if(!state.profile?.name){ state.phase = 'profile'; render(); return; }
+    const fixed = staffNameFor(user);
+    if(fixed){
+      if(state.profile?.name !== fixed){
+        const p = {name:fixed, email:user.email||'', phone:user.phone||'', ...(state.profile?.createdAt ? {} : {createdAt:Date.now()})};
+        try{ await B().setProfile(user.uid, p); }catch(e){ console.warn('Could not save staff name', e); }
+        state.profile = {...state.profile, ...p};
+      }
+    } else if(!state.profile?.name){ state.phase = 'profile'; render(); return; }
   } else {
     state.profile = {name: loadMe().name || ''};
   }
