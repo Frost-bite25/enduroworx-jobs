@@ -456,6 +456,46 @@
   .tv .verpop{display:none!important}
   .tv .ver{margin:0;font-size:.75vw;opacity:.5}
   .tv-off{position:fixed;right:1vw;bottom:1vw;font-size:1vw;color:var(--danger)}
+
+  /* ---------- Job card spacing: clear zones, even rhythm ---------- */
+  .job{padding:18px 18px 16px}
+  .job .jhead{display:block}
+  .jtop{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+  .jtop select{margin-left:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;font-size:13px;max-width:55%}
+  .jtop .spill{margin-left:auto}
+  .jhead h3{line-height:1.2;margin:0 0 6px}
+  .jmeta .sub{line-height:1.5;margin-top:0}
+  .jmeta .jbike{color:var(--text);font-weight:500}
+  .job .prog{margin:16px 0 4px;padding-top:14px;border-top:1px solid var(--line)}
+  .pmeta{margin-top:8px}
+  ul.items{margin:10px 0 0}
+  ul.items li{padding:11px 0;gap:12px}
+  ul.items li:first-child{border-top:0}
+  .by{margin-top:2px}
+  .job .addrow{margin-top:12px}
+  .job details.parts{margin-top:8px}
+  .job .addrow + details.parts, .job .reqbar + details.parts, .job ul.items + details.parts{margin-top:16px}
+  details.parts summary{padding:11px 14px}
+  .notified,.accsent{margin-top:10px}
+  .notyet{margin-top:12px}
+  .job .notes{margin-top:12px;padding:10px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--line)}
+  .jfoot{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);gap:8px 10px;align-items:center}
+  @media (min-width: 760px){
+    .job{padding:22px 24px 20px}
+    ul.items li{padding:12px 0}
+  }
+
+
+  /* Status dropdown tinted with its status colour (matches the card's left edge) */
+  select.stsel{font-weight:600;-webkit-appearance:none;appearance:none;padding-right:28px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23ccc' stroke-width='1.6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 10px center}
+  select.stsel.st-booked{background-color:color-mix(in srgb,var(--booked) 18%,var(--panel2));border-color:color-mix(in srgb,var(--booked) 55%,transparent);color:color-mix(in srgb,var(--booked) 70%,#fff)}
+  select.stsel.st-in_progress{background-color:color-mix(in srgb,var(--progress) 18%,var(--panel2));border-color:color-mix(in srgb,var(--progress) 55%,transparent);color:color-mix(in srgb,var(--progress) 70%,#fff)}
+  select.stsel.st-waiting_parts{background-color:color-mix(in srgb,var(--parts) 18%,var(--panel2));border-color:color-mix(in srgb,var(--parts) 55%,transparent);color:color-mix(in srgb,var(--parts) 70%,#fff)}
+  select.stsel.st-ready{background-color:color-mix(in srgb,var(--ready) 18%,var(--panel2));border-color:color-mix(in srgb,var(--ready) 55%,transparent);color:color-mix(in srgb,var(--ready) 70%,#fff)}
+  select.stsel.st-collected{background-color:color-mix(in srgb,var(--collected) 18%,var(--panel2));border-color:color-mix(in srgb,var(--collected) 55%,transparent);color:color-mix(in srgb,var(--collected) 70%,#fff)}
+  select.stsel.st-invoiced{background-color:color-mix(in srgb,var(--invoiced) 18%,var(--panel2));border-color:color-mix(in srgb,var(--invoiced) 55%,transparent);color:color-mix(in srgb,var(--invoiced) 70%,#fff)}
+  select.stsel option{background:var(--panel2);color:var(--text)}
 </style>
 </head>
 <body>
@@ -471,7 +511,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.9.2";
+const APP_VERSION = "2.9.3";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -522,6 +562,7 @@ const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.9.3","25 Nov","Cleaner spacing on job cards; status dropdown coloured by status"],
   ["2.9.2","25 Nov","Version number corrected"],
   ["2.9.1","25 Nov","Nathan added as staff; staff names fixed (no Change name)"],
   ["2.9.0","24 Nov","One-tap customer updates on WhatsApp or email when a job is booked in, waiting for parts or ready"],
@@ -1065,16 +1106,21 @@ const newReqs = job => itemsOf(job).filter(isNewReq);
 
 function jobCard(job){
   const s = stats(job), id = job.id, staff = state.staff;
-  const sub = [job.bike, staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
+  const contact = [staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
-      <div><div class="jtags">${makeBadge(job.bike)}${jobNoTag(job)}</div><h3>${esc(job.customer)}</h3>${sub?`<div class="sub">${sub}</div>`:''}
-        ${job.createdAt?`<div class="sub">Booked in ${esc(fmtStamp(job.createdAt))} <span class="ago">(${esc(ago(job.createdAt))})</span></div>`:''}
-        ${job.due?`<div class="sub due ${isOpen(job)?dueClass(job.due):''}" style="color:var(--accent)">Wanted by ${esc(fmtDate(job.due))}${isOpen(job)?dueLabel(job.due):''}</div>`:''}</div>
+      <div class="jtop"><div class="jtags">${makeBadge(job.bike)}${jobNoTag(job)}</div>
       ${staff
-        ? `<select data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
+        ? `<select class="stsel st-${esc(job.status)}" data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
             `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select>`
-        : `<span class="spill">${esc(STATUSES[job.status]?.label || job.status)}</span>`}
+        : `<span class="spill">${esc(STATUSES[job.status]?.label || job.status)}</span>`}</div>
+      <h3>${esc(job.customer)}</h3>
+      <div class="jmeta">
+        ${job.bike?`<div class="sub jbike">${esc(job.bike)}</div>`:''}
+        ${contact?`<div class="sub">${contact}</div>`:''}
+        ${job.createdAt?`<div class="sub">Booked in ${esc(fmtStamp(job.createdAt))} <span class="ago">(${esc(ago(job.createdAt))})</span></div>`:''}
+        ${job.due?`<div class="sub due ${isOpen(job)?dueClass(job.due):''}" style="color:var(--accent)">Wanted by ${esc(fmtDate(job.due))}${isOpen(job)?dueLabel(job.due):''}</div>`:''}
+      </div>
     </div>
     ${staff && newReqs(job).length ? `<div class="reqbar"><span>🔔 <b>${newReqs(job).length} new request${newReqs(job).length===1?'':'s'}</b> from ${esc(firstName(job.customer))}</span>
       <button class="btn small" data-act="seen-all" data-id="${id}">Got it</button></div>` : ''}
@@ -1523,7 +1569,7 @@ function jobList(jobs){
     const s = stats(job), id = job.id, open = state.expanded.has(id), nr = newReqs(job).length;
     return `<div class="jl-row s-${esc(job.status)} ${open?'exp':''}" data-act="expand" data-id="${id}">
       <div class="jl-name"><b>${esc(job.customer)}</b><span>${jobNoOf(job) ? `<em class="jlno">${jobNoOf(job)}</em> ` : ''}${makeBadge(job.bike,'sm')} ${esc(job.bike||'')}</span></div>
-      <div class="jl-status"><select data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
+      <div class="jl-status"><select class="stsel st-${esc(job.status)}" data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
         `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select></div>
       <div class="jl-prog"><div class="track"><i style="width:${s.pct}%"></i></div><span>${s.done}/${s.total}</span></div>
       <div class="jl-due due ${isOpen(job)?dueClass(job.due):''}">${job.due ? esc(fmtDate(job.due)) : '<span class="muted">—</span>'}</div>
