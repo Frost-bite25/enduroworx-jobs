@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
-<title>Enduroworx · new layout preview</title>
+<title>New Interface Preview · Enduroworx</title>
 <link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap">
@@ -79,7 +79,7 @@ ol.tl{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:8px;font
 </style>
 </head>
 <body>
-<div class="preview">PREVIEW of the new layout · read-only, live data · make changes in the <a href="./">main app</a></div>
+<div class="preview">New Interface Preview · read-only, live data · make changes in the <a href="./">main app</a></div>
 <div id="app"><p class="empty">Loading…</p></div>
 <script type="module">
 /* READ-ONLY by design: only reading functions are imported from Firestore below.
@@ -246,7 +246,7 @@ function jobPage(j){
 
 function renderLogin(){
   app.innerHTML = `<form class="login" id="lf"><div class="brand" style="color:var(--ink);padding:0">ENDURO<span>WORX</span></div>
-    <div class="sub">Staff sign-in for the layout preview. If you’re signed in to the main app on this device, this happens automatically.</div>
+    <div class="sub">Staff sign-in for the New Interface Preview. If you’re signed in to the main app on this device, this happens automatically.</div>
     <label>Email<br><input type="email" id="em" autocomplete="username" required style="width:100%"></label>
     <label>Password<br><input type="password" id="pw" autocomplete="current-password" required style="width:100%"></label>
     <button class="btn pri" type="submit">Sign in</button><div class="err" id="le"></div>
