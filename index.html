@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0c0c0d">
+<script>try{if(localStorage.getItem('jobboard.theme')==='light'&&!/[?&]view=tv/.test(location.search)){document.documentElement.classList.add('light');document.querySelector('meta[name=theme-color]').content='#f2f2f4'}}catch(e){}</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Enduroworx">
@@ -496,6 +497,46 @@
   select.stsel.st-collected{background-color:color-mix(in srgb,var(--collected) 18%,var(--panel2));border-color:color-mix(in srgb,var(--collected) 55%,transparent);color:color-mix(in srgb,var(--collected) 70%,#fff)}
   select.stsel.st-invoiced{background-color:color-mix(in srgb,var(--invoiced) 18%,var(--panel2));border-color:color-mix(in srgb,var(--invoiced) 55%,transparent);color:color-mix(in srgb,var(--invoiced) 70%,#fff)}
   select.stsel option{background:var(--panel2);color:var(--text)}
+
+  /* ---------- Theme button ---------- */
+  .themebtn{display:grid;place-items:center;width:38px;height:38px;border-radius:10px;background:var(--panel);border:1px solid var(--line);color:var(--text);padding:0}
+  .themebtn:hover{background:var(--panel2)}
+  @media (max-width:440px){ .themebtn{width:32px;height:32px;border-radius:8px} .top .hright{gap:6px} .top{gap:8px} }
+  @media (max-width:400px){ .top > .conn{font-size:0} .top > .conn .dot{margin-right:0} }
+
+  /* ---------- Light theme (TV board and photo viewer stay dark) ---------- */
+  html.light{--bg:#f1f1f4; --panel:#ffffff; --panel2:#f3f3f6; --line:#dcdce3; --text:#17171b; --muted:#6a6973; --accent:#3d55e0;
+    --booked:#4a63e8; --progress:#d8890b; --parts:#8b55d6; --ready:#1f9d55; --collected:#6b7684; --invoiced:#16897f; --danger:#d93636}
+  html.light .job, html.light .jlist, html.light .wday, html.light details.parts{box-shadow:0 1px 2px #0000000d}
+  html.light .due.soon{color:#b7791f!important} html.light .due.overdue{color:#d93636!important}
+  html.light .btn.inv{background:#fdecec;border-color:#f1b5b5;color:#a12a2a}
+  html.light .btn.acc{background:#e9f0ff;border-color:#b9cbf3;color:#2546a6}
+  html.light .btn.wa{background:#1f9d55;border-color:#1a8a4a;color:#fff}
+  html.light .banner, html.light .reqbar, html.light .notyet{background:#fff6df;border-color:#ecd08a;color:#7a5200}
+  html.light .notyet u, html.light ul.titems li.tnewitem{color:#8a5c00}
+  html.light ul.items li.newreq{background:#fff6df;box-shadow:inset 3px 0 0 #e0a400}
+  html.light .invbar{background:#fdeeee;border-color:#f1c0c0;color:#8a2323}
+  html.light .invbar .qbbtn{background:#e8f6ec;border-color:#a9dcb8;color:#1d6b3a}
+  html.light .tabs button.toinv.on{background:#fdecec;color:#a12a2a}
+  html.light .filterbar, html.light .screenrow.new{background:#eef1ff;border-color:#c3cdf6}
+  html.light .ptag, html.light .fl-parts, html.light .accsent, html.light .duetxt{color:#2f4fc9}
+  html.light .notified{color:#1d7a43}
+  html.light .notes, html.light .lg-body ul{color:#3b3b44}
+  html.light .jl-row:hover{background:#f6f6f9} html.light .jl-row.exp{background:#eef1ff}
+  html.light .pagetabs button.on{color:var(--text)}
+  html.light .v-good{background:#e3f5ea;color:#1d7a43} html.light .v-ok{background:#fbf1d6;color:#8a5c00}
+  html.light .v-mud{background:#f6e8da;color:#8a4b16} html.light .v-bad{background:#fbe3e3;color:#a12a2a}
+  html.light select.stsel.st-booked{color:color-mix(in srgb,var(--booked) 80%,#000)}
+  html.light select.stsel.st-in_progress{color:color-mix(in srgb,var(--progress) 70%,#000)}
+  html.light select.stsel.st-waiting_parts{color:color-mix(in srgb,var(--parts) 80%,#000)}
+  html.light select.stsel.st-ready{color:color-mix(in srgb,var(--ready) 80%,#000)}
+  html.light select.stsel.st-collected{color:color-mix(in srgb,var(--collected) 80%,#000)}
+  html.light select.stsel.st-invoiced{color:color-mix(in srgb,var(--invoiced) 80%,#000)}
+  html.light select.stsel{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23555' stroke-width='1.6'/%3E%3C/svg%3E")}
+  html.light .duebox input[type=date]{color-scheme:light}
+  html.light dialog::backdrop{background:rgba(20,20,30,.35)}
+  html.light .verpop{box-shadow:0 10px 30px #0003}
+  html.light .xlist{box-shadow:0 10px 30px #0002}
 </style>
 </head>
 <body>
@@ -511,7 +552,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.9.3";
+const APP_VERSION = "2.10.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -559,9 +600,20 @@ const FIREBASE_CONFIG = {
 
 const LOGO = `<div class="logo"><div class="lw">ENDURO<span class="b">WORX</span></div><div class="ls">PLETTENBERG BAY</div></div>`;
 
+// Light / dark theme, remembered per device
+const isLight = () => document.documentElement.classList.contains('light');
+const themeBtn = () => `<button class="themebtn" data-act="theme" aria-label="Switch to ${isLight() ? 'dark' : 'light'} theme" title="Switch to ${isLight() ? 'dark' : 'light'} theme">${isLight() ? '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M16.5 12.3A7 7 0 0 1 7.7 3.5a7 7 0 1 0 8.8 8.8z"/></svg>' : '<svg viewBox="0 0 20 20" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="10" cy="10" r="3.6"/><path d="M10 1.8v2.1M10 16.1v2.1M1.8 10h2.1M16.1 10h2.1M4.2 4.2l1.5 1.5M14.3 14.3l1.5 1.5M4.2 15.8l1.5-1.5M14.3 5.7l1.5-1.5"/></svg>'}</button>`;
+function toggleTheme(){
+  const light = !isLight();
+  document.documentElement.classList.toggle('light', light);
+  try{ localStorage.setItem('jobboard.theme', light ? 'light' : 'dark'); }catch{}
+  const m = document.querySelector('meta[name=theme-color]'); if(m) m.content = light ? '#f2f2f4' : '#0c0c0d';
+  render();
+}
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.10.0","25 Nov","Light or dark theme (sun / moon button at the top); Booked in filter moved first"],
   ["2.9.3","25 Nov","Cleaner spacing on job cards; status dropdown coloured by status"],
   ["2.9.2","25 Nov","Version number corrected"],
   ["2.9.1","25 Nov","Nathan added as staff; staff names fixed (no Change name)"],
@@ -1771,7 +1823,7 @@ function renderBoard(){
   const closed = all.filter(j => !isOpen(j) && (!state.staff || j.status === 'invoiced')).sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
   if(state.tab === 'toinvoice' && !state.staff) state.tab = 'open';
   const js = state.jobStatus || 'all';
-  const JOB_FILTERS = [['all','All'],['newreq','🔔 New requests'],['in_progress','In progress'],['waiting_parts','Waiting for parts'],['booked','Booked in']];
+  const JOB_FILTERS = [['all','All'],['newreq','🔔 New requests'],['booked','Booked in'],['in_progress','In progress'],['waiting_parts','Waiting for parts']];
   const jobChips = state.staff && state.tab === 'open' && open.length ? `<div class="chips">${JOB_FILTERS.map(([k,l]) => {
       const n = k === 'all' ? open.length : k === 'newreq' ? open.filter(j => newReqs(j).length).length : open.filter(j => j.status === k).length;
       if(!n && k !== 'all' && k !== js) return '';
@@ -1789,8 +1841,8 @@ function renderBoard(){
       </nav>` : '';
   return `<div class="wrap">
     <div class="top">${LOGO}${state.staff?'':conn}
-      ${!state.staff?`<button class="btn small ghost" data-act="staff-login">Staff sign-in</button>`:''}
-      ${state.staff?`<div class="hright"><div class="hbtns"><button class="btn small exp" data-act="export" title="Spreadsheet or full backup"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10"/></svg>Export</button>${conn}</div>
+      ${!state.staff?`<span class="hright">${themeBtn()}<button class="btn small ghost" data-act="staff-login">Staff sign-in</button></span>`:''}
+      ${state.staff?`<div class="hright">${themeBtn()}<div class="hbtns"><button class="btn small exp" data-act="export" title="Spreadsheet or full backup"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 2v8M4.5 6.5 8 10l3.5-3.5M3 13h10"/></svg>Export</button>${conn}</div>
         ${makeQr()?`<button class="qrtile" data-act="qr" aria-label="Show customer QR code"><img src="${makeQr()}" alt=""></button>`:''}</div>`:''}
     </div>
     ${state.staff ? `<div class="who">Signed in as <b>${esc(myName())}</b> (${esc(loginAs)})
@@ -2327,6 +2379,7 @@ app.addEventListener('click', async e => {
     case 'accounts': b.closest('details')?.removeAttribute('open'); openAccountsDialog(job); break;
     case 'xport': b.closest('details')?.removeAttribute('open'); accountsAction(job, b.dataset.k); break;
     case 'qb-csv': openQbDialog(); break;
+    case 'theme': toggleTheme(); break;
     case 'notify': openNotify(job); break;
     case 'reopen': act(() => B().updateJob(id, {status:'ready', ...touch()})); break;
     case 'del-job':
