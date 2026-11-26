@@ -567,6 +567,7 @@ html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:
 
 /* ---- full-size job view ---- */
 .fullbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;width:32px;height:32px;font-size:17px;line-height:1;cursor:pointer;flex:0 0 auto;margin-left:auto}
+.jhead.jopen{cursor:pointer} .jhead.jopen:hover h3{text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
 .fullbtn:hover{color:var(--ink,#fff);border-color:var(--muted)}
 .jtop .fullbtn + select, .jtop .fullbtn + .spill{margin-left:0}
 html.fullopen, html.fullopen body{overflow:hidden}
@@ -597,7 +598,7 @@ html.fullopen, html.fullopen body{overflow:hidden}
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.15.0";
+const APP_VERSION = "2.15.1";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -658,6 +659,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.15.1","26 Nov","Tap a job's header (name, bike, dates) to open it full size"],
   ["2.15.0","26 Nov","⤢ button on each job opens it full size over the board, in two columns with every section open"],
   ["2.14.0","26 Nov","Costing: task prices are estimates only; the invoice now comes from Parts & labour (new Add labour: hours × rate)"],
   ["2.13.0","26 Nov","Automatic photo clean-up: photos kept 2 years, videos 3 months, deleted items cleared after 30 days"],
@@ -1250,7 +1252,7 @@ function jobCard(job){
   const s = stats(job), id = job.id, staff = state.staff;
   const contact = [staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
-    <div class="jhead">
+    <div class="jhead${state.full === id ? '' : ' jopen'}"${state.full === id ? '' : ` data-act="full" data-id="${id}" title="Open full size"`}>
       <div class="jtop"><div class="jtags">${makeBadge(job.bike)}${jobNoTag(job)}</div>
       ${state.full === id ? '' : `<button class="fullbtn" data-act="full" data-id="${id}" title="Open this job full size" aria-label="Open full size">⤢</button>`}
       ${staff
@@ -2536,6 +2538,7 @@ function addItem(id){
 document.addEventListener('click', e => { document.querySelectorAll('details.xmenu[open]').forEach(d => { if(!d.contains(e.target)) d.removeAttribute('open'); }); });
 app.addEventListener('click', async e => {
   const b = e.target.closest('[data-act]'); if(!b || b.tagName==='SELECT' || b.type==='checkbox') return;
+  if(b.dataset.act === 'full' && (e.target.closest('select, a, input') || getSelection()?.toString())) return;  // header tap: not on the status menu or while selecting text
   const {act:a, id, item} = b.dataset;
   const job = state.jobs[id], it = job?.items?.[item];
   switch(a){
