@@ -1296,7 +1296,7 @@ function addNote(id){
 /* ---------- Photos & videos (staff add; customers see) ---------- */
 // Storage: photos are shrunk in the browser before upload. In demo mode they're kept in this browser;
 // the live site will store them in Cloudflare R2 (MEDIA_UPLOAD_URL), so until that's set the Add button is hidden.
-const MEDIA_UPLOAD_URL = "";
+const MEDIA_UPLOAD_URL = "https://enduroworx-media.enduroworx.workers.dev";
 const mediaOk = () => B()?.mode !== 'live' || !!MEDIA_UPLOAD_URL;
 const jobMedia = job => Object.entries(job.media || {}).map(([mid, m]) => ({id:mid, ...m})).filter(m => !m.deleted).sort((a,b) => (a.t||0) - (b.t||0));
 const PLAY_ICON = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#000a"/><path d="M10 8l6 4-6 4z" fill="#fff"/></svg>`;
