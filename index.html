@@ -537,6 +537,30 @@
   html.light dialog::backdrop{background:rgba(20,20,30,.35)}
   html.light .verpop{box-shadow:0 10px 30px #0003}
   html.light .xlist{box-shadow:0 10px 30px #0002}
+
+  /* ---------- Layout C: clearer full job cards ---------- */
+  .mason{gap:26px} .mcol{gap:26px} .joblist{gap:22px}
+  .job{border-radius:16px;box-shadow:0 2px 0 var(--line),0 10px 24px #0000004d;padding-top:0!important;overflow:hidden}
+  html.light .job{box-shadow:0 1px 2px #0000001a,0 8px 22px #0000001a}
+  .job .jhead{margin:0 -24px 0;padding:16px 24px 14px;border-bottom:1px solid var(--line)}
+  .job.s-booked .jhead{background:color-mix(in srgb,var(--booked) 12%,transparent)}
+  .job.s-in_progress .jhead{background:color-mix(in srgb,var(--progress) 12%,transparent)}
+  .job.s-waiting_parts .jhead{background:color-mix(in srgb,var(--parts) 12%,transparent)}
+  .job.s-ready .jhead{background:color-mix(in srgb,var(--ready) 12%,transparent)}
+  .job.s-collected .jhead{background:color-mix(in srgb,var(--collected) 14%,transparent)}
+  .job.s-invoiced .jhead{background:color-mix(in srgb,var(--invoiced) 12%,transparent)}
+  .job .jhead h3{font-size:21px}
+  .job .prog{border-top:0!important}
+  .job ul.items .by{display:none}
+  .job ul.items li{padding:8px 0}
+  .job details.parts:not([open]){display:inline-block;width:auto;margin:12px 6px 0 0!important}
+  .job details.parts:not([open]) summary{padding:6px 11px;font-size:13px;border-radius:999px}
+  .job details.parts:not([open]) summary::after{display:none}
+  @media (max-width:759px){ .job .jhead{margin:0 -18px;padding:14px 18px 12px} }
+html.ro :is(.job,dialog) :is([data-act=add-item],[data-act=add-note],[data-act=add-part],[data-act=collected],[data-act=ready],[data-act=invoiced],[data-act=reopen],[data-act=del-item],[data-act=del-job],[data-act=del-note],[data-act=del-part],[data-act=edit-job],[data-act=edit-cost],[data-act=notify],[data-act=accounts]),
+html.ro [data-act=new-job], html.ro .job select.stsel, html.ro .job input[type=checkbox], html.ro .job .addrow :is(input,button){opacity:.45;cursor:not-allowed}
+html .banner.pvbanner,html.light .banner.pvbanner{background:#ede9fe;border-color:#c4b5fd;color:#4c1d95}
+html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:#ede9fe}
 </style>
 </head>
 <body>
@@ -552,7 +576,7 @@
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.10.0";
+const APP_VERSION = "2.11.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -613,6 +637,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.11.0","26 Nov","Clearer job cards; To invoice now holds Ready, Collected and Invoiced with its own filter"],
   ["2.10.0","25 Nov","Light or dark theme (sun / moon button at the top); Booked in filter moved first"],
   ["2.9.3","25 Nov","Cleaner spacing on job cards; status dropdown coloured by status"],
   ["2.9.2","25 Nov","Version number corrected"],
@@ -761,7 +786,8 @@ const params = new URLSearchParams(location.search);
 const VIEW = params.get('view') === 'tv' ? 'tv' : 'app';
 const SCREEN_TOKEN = params.get('screen') || '';
 const LIVE = !!FIREBASE_CONFIG;
-const baseUrl = () => location.origin + location.pathname;
+const IS_PREVIEW = /\/preview(\.html)?\/?$/.test(location.pathname); // preview copies are always read-only
+const baseUrl = () => location.origin + location.pathname.replace(/preview(\.html)?\/?$/, '');
 const jobUrl = id => `${baseUrl()}?job=${encodeURIComponent(id)}`;
 const OPEN_JOB = params.get('job') || '';
 // Jobs this phone has booked or opened (their private links), and the customer's details for next time
@@ -1079,6 +1105,7 @@ function renderLogin(){
   return `<div class="land">
     ${LOGO}
     <p class="lead">Workshop staff sign-in</p>
+    ${IS_PREVIEW?`<div class="banner pvbanner">🧪 <b>Preview version</b> (v${APP_VERSION}). Read-only: shows the real jobs, but nothing you do here is saved.</div>`:''}
     ${demo?`<div class="banner">Demo mode: no real email or SMS is sent. You're signed in straight away. Use <b>${esc(STAFF[0])}</b> to see Erik's view.</div>`:''}
     ${body}
     <p style="text-align:center;margin-top:18px"><button class="linkbtn" data-act="back-to-board">← Back to bookings</button></p>
@@ -1535,6 +1562,22 @@ function writeLog(jobId, job, details){
     uid:state.user.uid, summary:details[0], details}).catch(e => console.warn('Log not saved', e));
 }
 // Every add/change/delete goes through here, so nothing is missed
+// Preview page is read-only: nothing it does is saved, so it can safely show the real jobs.
+const RO_MSG = 'Preview is read-only. Nothing was changed.';
+function readOnly(b){
+  const loud = ['addJob','updateJob','removeJob','addScreen','removeScreen'], quiet = ['numberJobs','addLog','setProfile','saveWeather'];
+  loud.forEach(k => { if(b[k]) b[k] = async () => { toast(RO_MSG); }; });
+  quiet.forEach(k => { if(b[k]) b[k] = async () => {}; });
+}
+const RO_ACTS = new Set(['accounts','add','add-item','add-note','add-part','collected','cust-book','del-item','del-job','del-note','del-part',
+  'edit-cost','edit-job','edit-text','invoiced','new-job','notify','ready','reopen','remove','save-profile','seen-all','part-name','part-price','part-qty']);
+if(IS_PREVIEW){
+  document.documentElement.classList.add('ro');
+  const stop = e => { e.preventDefault(); e.stopImmediatePropagation(); toast(RO_MSG); };
+  document.addEventListener('click', e => { const t = e.target.closest?.('[data-act]'); if(t && RO_ACTS.has(t.dataset.act) && !t.closest('.land')) stop(e); }, true);
+  document.addEventListener('change', e => { const a = e.target.dataset?.act; if(a === 'tick' || a === 'status' || e.target.dataset?.mediaUp){ stop(e); render(); } }, true);
+  document.addEventListener('keydown', e => { if(e.key === 'Enter' && e.target.closest?.('.job, dialog')) { e.preventDefault(); e.stopImmediatePropagation(); } }, true);
+}
 function withLog(b){
   const add = b.addJob, upd = b.updateJob, rem = b.removeJob;
   b.addJob = async job => {
@@ -1822,13 +1865,23 @@ function renderBoard(){
   const toInvoice = all.filter(j => TO_INVOICE.includes(j.status)).sort((a,b) => (a.collectedAt||a.updatedAt||0) - (b.collectedAt||b.updatedAt||0));
   const closed = all.filter(j => !isOpen(j) && (!state.staff || j.status === 'invoiced')).sort((a,b) => (b.updatedAt||0)-(a.updatedAt||0));
   if(state.tab === 'toinvoice' && !state.staff) state.tab = 'open';
+  if(state.tab === 'closed' && state.staff) state.tab = 'toinvoice';
+  // Staff "To invoice" page: not yet invoiced first (oldest first), then invoiced (newest first)
+  const finished = state.staff ? [...toInvoice, ...closed] : [];
+  const is = state.invStatus || 'all';
+  const INV_FILTERS = [['all','All'],['ready','Ready for collection'],['collected','Collected'],['invoiced','Invoiced']];
+  const invChips = state.staff && state.tab === 'toinvoice' && finished.length ? `<div class="chips">${INV_FILTERS.map(([k,l]) => {
+      const n = k === 'all' ? finished.length : finished.filter(j => j.status === k).length;
+      if(!n && k !== 'all' && k !== is) return '';
+      return `<button class="chip ${is===k?'on':''}" data-act="inv-status" data-f="${k}">${l} <span>${n}</span></button>`; }).join('')}</div>` : '';
   const js = state.jobStatus || 'all';
   const JOB_FILTERS = [['all','All'],['newreq','🔔 New requests'],['booked','Booked in'],['in_progress','In progress'],['waiting_parts','Waiting for parts']];
   const jobChips = state.staff && state.tab === 'open' && open.length ? `<div class="chips">${JOB_FILTERS.map(([k,l]) => {
       const n = k === 'all' ? open.length : k === 'newreq' ? open.filter(j => newReqs(j).length).length : open.filter(j => j.status === k).length;
       if(!n && k !== 'all' && k !== js) return '';
       return `<button class="chip ${js===k?'on':''}" data-act="job-status" data-f="${k}">${l} <span>${n}</span></button>`; }).join('')}</div>` : '';
-  const list = state.tab === 'open' ? (js === 'all' ? open : js === 'newreq' ? open.filter(j => newReqs(j).length) : open.filter(j => j.status === js)) : state.tab === 'toinvoice' ? toInvoice : closed;
+  const list = state.tab === 'open' ? (js === 'all' ? open : js === 'newreq' ? open.filter(j => newReqs(j).length) : open.filter(j => j.status === js))
+    : state.tab === 'toinvoice' ? (is === 'all' ? finished : finished.filter(j => j.status === is)) : closed;
   const demo = B().mode === 'demo';
   const conn = demo ? `<span class="conn"><span class="dot demo"></span>Demo</span>`
     : `<span class="conn"><span class="dot ${state.online?'':'off'}"></span>${state.online?'Live':'Offline'}</span>`;
@@ -1849,6 +1902,7 @@ function renderBoard(){
       <span class="tag">STAFF</span>
       <button class="linkbtn" data-act="signout">Sign out</button></div>`
     : state.user && !state.user.anon ? `<div class="who">Signed in as ${esc(loginAs)} <button class="linkbtn" data-act="signout">Sign out</button></div>` : ''}
+    ${IS_PREVIEW?`<div class="banner pvbanner">🧪 <b>Preview version</b> (v${APP_VERSION}). Read-only: shows the real jobs, but nothing you do here is saved.</div>`:''}
     ${demo?`<div class="banner">Demo mode: everything is saved only in this browser.${state.staff?' Sign out to see what customers see.':` Use <b>Staff sign-in</b> at the bottom with ${esc(STAFF[0])} to see Erik's view.`}</div>`:''}
     ${!state.staff && state.loaded && !Object.keys(state.jobs).length ? `<div class="welcome">
       <h2>Book your bike in</h2>
@@ -1863,9 +1917,9 @@ function renderBoard(){
       <div class="tabs">
         <button data-act="tab" data-tab="open" class="${state.tab==='open'?'on':''}">Open (${open.length})</button>
         ${state.staff ? `<button data-act="tab" data-tab="toinvoice" class="toinv ${state.tab==='toinvoice'?'on':''}">To invoice${toInvoice.length?`<span class="n">${toInvoice.length}</span>`:' (0)'}</button>` : ''}
-        <button data-act="tab" data-tab="closed" class="${state.tab==='closed'?'on':''}">${state.staff ? 'Invoiced' : 'Done'} (${closed.length})</button>
+        ${state.staff ? '' : `<button data-act="tab" data-tab="closed" class="${state.tab==='closed'?'on':''}">Done (${closed.length})</button>`}
       </div>
-      ${jobChips}
+      ${jobChips}${invChips}
       <span class="spacer"></span>
       ${state.staff ? viewToggle('jobs') : ''}
       <button class="btn primary" data-act="new-job">${state.staff?'+ New job':'+ Book my bike in'}</button>
@@ -1874,7 +1928,7 @@ function renderBoard(){
       <button class="btn small qbbtn" data-act="qb-csv">⬇ QuickBooks CSV</button></div>` : ''}
     ${!state.loaded ? `<div class="empty">Loading…</div>`
       : list.length ? (state.staff && state.view.jobs === 'list' ? jobList(list) : masonry(list))
-      : `<div class="empty">${state.tab==='toinvoice' ? 'Nothing waiting to be invoiced. 👍' : state.tab!=='open' ? (state.staff ? 'No invoiced jobs yet.' : 'No finished jobs yet.') : js !== 'all' ? 'No jobs with that status.'
+      : `<div class="empty">${state.tab==='toinvoice' ? (is !== 'all' ? 'No jobs with that status.' : 'No finished jobs yet.') : state.tab!=='open' ? (state.staff ? 'No invoiced jobs yet.' : 'No finished jobs yet.') : js !== 'all' ? 'No jobs with that status.'
           : state.staff ? 'No open jobs. Tap “+ New job” to book a bike in.'
           : 'Your bikes will show here once booked in.'}</div>`}`}
     ${VERSION_TAG}
@@ -2335,6 +2389,7 @@ app.addEventListener('click', async e => {
     case 'export': openExportDialog(); break;
     case 'qr': openQrDialog(); break;
     case 'tab': state.tab = b.dataset.tab; render(); break;
+    case 'inv-status': state.invStatus = b.dataset.f; render(); break;
     case 'page': if(b.dataset.page === 'customers') showCustomers(); else if(b.dataset.page === 'activity') showActivity(); else { state.page = 'jobs'; render(); } break;
     case 'log-kind': state.logKind = b.dataset.f; render(); break;
     case 'job-status': state.jobStatus = b.dataset.f; render(); break;
@@ -2577,7 +2632,7 @@ async function onUser(user){
   if(VIEW === 'tv') document.body.classList.add('tv');
   render();
   loadWeather(); setInterval(loadWeather, 30*60*1000);
-  try{ state.backend = LIVE ? await firebaseBackend() : demoBackend(); if(VIEW !== 'tv') withLog(state.backend); }
+  try{ state.backend = LIVE ? await firebaseBackend() : demoBackend(); if(IS_PREVIEW) readOnly(state.backend); if(VIEW !== 'tv') withLog(state.backend); }
   catch(err){ state.err = 'Could not load (' + err.message + ')'; state.phase = 'login'; render(); return; }
 
   if(VIEW === 'tv'){
