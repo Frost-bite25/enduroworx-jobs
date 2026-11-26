@@ -101,6 +101,8 @@
   .pnum{display:flex;gap:6px;align-items:center;white-space:nowrap} .pq{color:var(--muted);font-size:13px}
   .padd{display:flex;flex-wrap:wrap;gap:6px;padding:10px 12px;border-top:1px solid var(--line)}
   .padd input,.padd select{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 9px;font-size:15px;min-width:0}
+  .padd .paddh{flex:1 1 100%;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+  .plab .ptype{font-size:12px;font-weight:700;color:var(--muted)} .ptotals .pest{display:block;font-size:12px;color:var(--muted);font-weight:400;margin-top:2px}
   .padd .pn{flex:1 1 100%} .padd .pnum2{flex:1 1 30%} .padd .pq2{flex:0 0 64px} .padd .pr2{flex:1 1 25%}
   .padd select{flex:1 1 60%} .padd .btn{flex:0 0 auto}
   .ptotals{padding:8px 12px 10px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);text-align:right}
@@ -577,7 +579,7 @@ html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.13.0";
+const APP_VERSION = "2.14.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -638,6 +640,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.14.0","26 Nov","Costing: task prices are estimates only; the invoice now comes from Parts & labour (new Add labour: hours × rate)"],
   ["2.13.0","26 Nov","Automatic photo clean-up: photos kept 2 years, videos 3 months, deleted items cleared after 30 days"],
   ["2.12.1","26 Nov","Job Link button: copies reliably on iPad/iPhone and shows the link with a Share option"],
   ["2.12.0","26 Nov","Photos and videos on each job, stored in Cloudflare (staff add, customers see)"],
@@ -753,14 +756,20 @@ function toast(msg){ document.querySelectorAll('.toast').forEach(x=>x.remove());
 function itemsOf(job){ return Object.entries(job.items||{}).map(([id,it])=>({id,...it})).sort((a,b)=>(a.t||0)-(b.t||0)); }
 function partsOf(job){ return Object.entries(job.parts||{}).map(([id,p])=>({id,...p})).sort((a,b)=>(a.t||0)-(b.t||0)); }
 const partLine = p => (+p.qty||1) * (+p.price||0);
+// "Parts & labour" lines (job.parts) are what goes on the invoice. kind:'labour' = hours × rate; anything else is a part.
+const isLabour = p => p.kind === 'labour';
+const hrs = v => { const n = +v||1; return `${+n.toFixed(2)} h`; };
 // "EW-1001" (empty until the job has a number)
 const jobNoOf = j => j && j.jobNo ? `${JOB_PREFIX}-${j.jobNo}` : '';
 const jobNoTag = j => jobNoOf(j) ? `<span class="jobno">${jobNoOf(j)}</span>` : '';
 function stats(job){
-  const items = itemsOf(job), done = items.filter(i=>i.done), parts = partsOf(job);
-  const work = items.reduce((s,i)=>s+(+i.cost||0),0), partsTotal = parts.reduce((s,p)=>s+partLine(p),0);
-  return {items, total:items.length, done:done.length, parts, work, partsTotal,
-    est: work + partsTotal,
+  const items = itemsOf(job), done = items.filter(i=>i.done), lines = partsOf(job);
+  const parts = lines.filter(p => !isLabour(p)), labour = lines.filter(isLabour);
+  const work = items.reduce((s,i)=>s+(+i.cost||0),0);   // task ESTIMATES only, never invoiced
+  const partsTotal = parts.reduce((s,p)=>s+partLine(p),0), labourTotal = labour.reduce((s,p)=>s+partLine(p),0);
+  return {items, total:items.length, done:done.length, lines, parts, labour, work, partsTotal, labourTotal,
+    invoice: partsTotal + labourTotal,
+    est: work,
     doneCost: done.reduce((s,i)=>s+(+i.cost||0),0),
     pct: items.length ? Math.round(done.length/items.length*100) : 0};
 }
@@ -1215,7 +1224,7 @@ function jobCard(job){
     <div class="prog">
       <div class="track"><i style="width:${s.pct}%"></i></div>
       <div class="pmeta"><span><b>${s.done}/${s.total}</b> done</span>
-        <span>Estimate <b>${s.est?money(s.est):'TBC'}</b>${s.doneCost && s.done<s.total?` · ${money(s.doneCost)} done`:''}</span></div>
+        <span>Estimate <b>${s.est?money(s.est):'TBC'}</b>${s.invoice?` · Actual <b>${money(s.invoice)}</b>`:''}</span></div>
     </div>
     <ul class="items">${s.items.map(it => {
       const ed = canEditItem(it), fresh = staff && isNewReq(it), cust = staff && !fresh && isCustItem(it, job);
@@ -1228,8 +1237,8 @@ function jobCard(job){
           ${(() => { const ps = s.parts.filter(p => p.itemId === it.id); return ps.length ? `<span class="ptag">🔩 ${ps.map(p => esc(p.name)).join(', ')} · ${money(ps.reduce((a,p)=>a+partLine(p),0))}</span>` : ''; })()}
         ${ed ? `</button>` : `</div>`}
         ${staff
-          ? `<button class="cost" data-act="edit-cost" data-id="${id}" data-item="${it.id}">${it.cost?money(it.cost):'+ cost'}</button>`
-          : `<span class="cost ro">${it.cost?money(it.cost):'TBC'}</span>`}
+          ? `<button class="cost" data-act="edit-cost" data-id="${id}" data-item="${it.id}" title="Estimate only, not invoiced">${it.cost?`est. ${money(it.cost)}`:'+ estimate'}</button>`
+          : `<span class="cost ro">${it.cost?`est. ${money(it.cost)}`:''}</span>`}
         ${ed ? `<button class="x" data-act="del-item" data-id="${id}" data-item="${it.id}" aria-label="Remove">×</button>` : `<span class="x"></span>`}
       </li>`; }).join('')}
     </ul>
@@ -1422,40 +1431,64 @@ function drawLightbox(){
 
 /* ---------- Parts used (staff edit, customers see) ---------- */
 function partsPanel(job, s){
-  const id = job.id, staff = state.staff, parts = s.parts;
-  if(!staff && !parts.length) return '';
+  const id = job.id, staff = state.staff, lines = s.lines;
+  if(!staff && !lines.length) return '';
   const open = state.partsOpen.has(id);
   const taskName = itemId => (job.items||{})[itemId]?.text || '';
-  const rows = parts.map(p => `<li>
-      <div class="pname">${staff ? `<button class="plink" data-act="part-name" data-id="${id}" data-part="${p.id}">${esc(p.name)}</button>` : esc(p.name)}
+  const row = p => { const lab = isLabour(p); return `<li class="${lab?'plab':''}">
+      <div class="pname">${lab ? `<span class="ptype">🔧 Labour</span>${p.name === 'Labour' && !staff ? '' : ' '}` : ''}${lab && p.name === 'Labour' && !staff ? '' : staff ? `<button class="plink" data-act="part-name" data-id="${id}" data-part="${p.id}">${esc(p.name)}</button>` : esc(p.name)}
         ${p.partNo?`<span class="pno">${esc(p.partNo)}</span>`:''}
         ${p.itemId && taskName(p.itemId)?`<span class="pfor">for ${esc(taskName(p.itemId))}</span>`:''}</div>
       <div class="pnum">
-        ${staff ? `<button class="cost" data-act="part-qty" data-id="${id}" data-part="${p.id}">${+p.qty||1} ×</button>
-                   <button class="cost" data-act="part-price" data-id="${id}" data-part="${p.id}">${p.price?money(p.price):'+ price'}</button>`
-                : `<span class="pq">${+p.qty||1} × ${p.price?money(p.price):'TBC'}</span>`}
+        ${staff ? `<button class="cost" data-act="part-qty" data-id="${id}" data-part="${p.id}">${lab ? hrs(p.qty) : `${+p.qty||1} ×`}</button>
+                   ${lab ? '<span class="pq">×</span>' : ''}<button class="cost" data-act="part-price" data-id="${id}" data-part="${p.id}">${p.price?money(p.price):'+ price'}${lab?'/h':''}</button>`
+                : `<span class="pq">${lab ? `${hrs(p.qty)} × ${p.price?money(p.price)+'/h':'TBC'}` : `${+p.qty||1} × ${p.price?money(p.price):'TBC'}`}</span>`}
         <b>${money(partLine(p))}</b>
-        ${staff?`<button class="x" data-act="del-part" data-id="${id}" data-part="${p.id}" aria-label="Remove part">×</button>`:''}
-      </div></li>`).join('');
+        ${staff?`<button class="x" data-act="del-part" data-id="${id}" data-part="${p.id}" aria-label="Remove">×</button>`:''}
+      </div></li>`; };
   const d = k => esc(state.drafts[`p${k}:${id}`] || '');
-  const sel = state.drafts[`pi:${id}`] || '';
+  const forSel = k => { const sel = state.drafts[`${k}:${id}`] || ''; return `<select data-draft="${k}:${id}" aria-label="For which task">
+        <option value="">For: whole job</option>
+        ${s.items.map(it => `<option value="${esc(it.id)}" ${sel===it.id?'selected':''}>For: ${esc(it.text)}</option>`).join('')}
+      </select>`; };
+  let rate = ''; try{ rate = localStorage.getItem('jobboard.labourRate') || ''; }catch{}
   const addForm = staff ? `<div class="padd">
+      <span class="paddh">Add a part</span>
       <input class="pn" data-draft="pn:${id}" placeholder="Part (e.g. Air filter)" value="${d('n')}">
       <input class="pnum2" data-draft="pp:${id}" placeholder="Part no." value="${d('p')}">
       <input class="pq2" data-draft="pq:${id}" placeholder="Qty" inputmode="decimal" value="${d('q')}">
       <input class="pr2" data-draft="pr:${id}" placeholder="${CURRENCY} each" inputmode="decimal" value="${d('r')}">
-      <select data-draft="pi:${id}" aria-label="For which task">
-        <option value="">For: whole job</option>
-        ${s.items.map(it => `<option value="${esc(it.id)}" ${sel===it.id?'selected':''}>For: ${esc(it.text)}</option>`).join('')}
-      </select>
+      ${forSel('pi')}
       <button class="btn small" data-act="add-part" data-id="${id}">Add part</button>
+    </div>
+    <div class="padd ladd">
+      <span class="paddh">Add labour</span>
+      <input class="pn" data-draft="ln:${id}" placeholder="Labour (e.g. Fork service)" value="${esc(state.drafts['ln:'+id]||'')}">
+      <input class="pq2" data-draft="lq:${id}" placeholder="Hours" inputmode="decimal" value="${esc(state.drafts['lq:'+id]||'')}">
+      <input class="pr2" data-draft="lr:${id}" placeholder="${rate ? `${CURRENCY}${rate}/h` : `${CURRENCY} per hour`}" inputmode="decimal" value="${esc(state.drafts['lr:'+id]||'')}">
+      ${forSel('li')}
+      <button class="btn small" data-act="add-labour" data-id="${id}">Add labour</button>
     </div>` : '';
+  const sum = [s.labour.length ? `labour <b>${money(s.labourTotal)}</b>` : '', s.parts.length ? `${s.parts.length} part${s.parts.length===1?'':'s'} <b>${money(s.partsTotal)}</b>` : ''].filter(Boolean).join(' · ');
   return `<details class="parts" data-id="${id}" ${open?'open':''}>
-    <summary>🔩 Parts used <span class="psum">${parts.length ? `${parts.length} part${parts.length===1?'':'s'} · <b>${money(s.partsTotal)}</b>` : 'none yet'}</span></summary>
-    ${parts.length ? `<ul class="plist">${rows}</ul>` : ''}
+    <summary>🔩 Parts &amp; labour <span class="psum">${sum || 'none yet'}</span></summary>
+    ${lines.length ? `<ul class="plist">${s.labour.map(row).join('')}${s.parts.map(row).join('')}</ul>` : ''}
     ${addForm}
-    ${parts.length || s.work ? `<div class="ptotals">Work ${money(s.work)} + Parts ${money(s.partsTotal)} = <b>${money(s.est)}</b></div>` : ''}
+    ${lines.length ? `<div class="ptotals">Labour ${money(s.labourTotal)} + Parts ${money(s.partsTotal)} = <b>Invoice ${money(s.invoice)}</b>${s.est ? `<span class="pest">Task estimates were ${money(s.est)}</span>` : ''}</div>`
+      : staff ? `<div class="ptotals muted">Add the parts and labour here. Only these go on the invoice; task prices are estimates.</div>` : ''}
   </details>`;
+}
+function addLabour(id){
+  const g = k => (state.drafts[`l${k}:${id}`] || '').trim();
+  let saved = ''; try{ saved = localStorage.getItem('jobboard.labourRate') || ''; }catch{}
+  const hours = parseFloat(g('q').replace(',', '.'));
+  if(!hours) return toast('Enter the hours');
+  const price = parseCost(g('r') || saved);
+  if(!price) return toast('Enter the rate per hour');
+  try{ localStorage.setItem('jobboard.labourRate', String(price)); }catch{}
+  const line = {kind:'labour', name:g('n') || 'Labour', qty:hours, price, itemId:g('i'), t:Date.now(), by:myName()};
+  ['n','q','r','i'].forEach(k => delete state.drafts[`l${k}:${id}`]);
+  act(() => B().updateJob(id, {[`parts.${uid()}`]:line, ...touch()}));
 }
 function addPart(id){
   const g = k => (state.drafts[`p${k}:${id}`] || '').trim();
@@ -1496,14 +1529,15 @@ function exportJobs(){
   if(!jobs.length) return toast('No jobs to export yet');
   const day = ms => ms ? new Date(ms).toLocaleDateString('en-CA',{timeZone:'Africa/Johannesburg'}) : '';
   const cols = ['Job no','Customer','Email','Cell','Bike','Status','Booked in','Wanted by','Collected','Invoiced',
-    'Work items','Work total','Parts used','Parts total','Total','Notes','Job link'];
+    'Tasks','Task estimates','Labour','Labour total','Parts used','Parts total','Invoice total','Notes','Job link'];
   const rows = jobs.map(j => {
     const s = stats(j);
     return [jobNoOf(j), j.customer, jobEmail(j), showContact(jobCell(j)), j.bike, STATUSES[j.status]?.label || j.status,
       day(j.createdAt), j.due || '', day(j.collectedAt), day(j.invoicedAt),
-      s.items.map(i => `${i.done ? '✓' : '○'} ${i.text}${i.cost ? ` (${i.cost})` : ''}`).join('; '), s.work,
+      s.items.map(i => `${i.done ? '✓' : '○'} ${i.text}${i.cost ? ` (est. ${i.cost})` : ''}`).join('; '), s.work,
+      s.labour.map(p => `${p.name} ${+p.qty||1}h @ ${p.price||0}`).join('; '), s.labourTotal,
       s.parts.map(p => `${+p.qty||1}× ${p.name}${p.partNo ? ` [${p.partNo}]` : ''} @ ${p.price||0}`).join('; '), s.partsTotal,
-      s.est, j.notes || '', jobUrl(j.id)];
+      s.invoice, j.notes || '', jobUrl(j.id)];
   });
   const cell = v => { const t = String(v ?? ''); return /[",\n;]/.test(t) ? `"${t.replace(/"/g,'""')}"` : t; };
   const csv = '\ufeff' + [cols, ...rows].map(r => r.map(cell).join(',')).join('\r\n');
@@ -1629,7 +1663,7 @@ function readOnly(b){
   loud.forEach(k => { if(b[k]) b[k] = async () => { toast(RO_MSG); }; });
   quiet.forEach(k => { if(b[k]) b[k] = async () => {}; });
 }
-const RO_ACTS = new Set(['accounts','add','add-item','add-note','add-part','collected','cust-book','del-item','del-job','del-note','del-part',
+const RO_ACTS = new Set(['accounts','add','add-item','add-labour','add-note','add-part','collected','cust-book','del-item','del-job','del-note','del-part',
   'edit-cost','edit-job','edit-text','invoiced','new-job','notify','ready','reopen','remove','save-profile','seen-all','part-name','part-price','part-qty']);
 if(IS_PREVIEW){
   document.documentElement.classList.add('ro');
@@ -1729,7 +1763,7 @@ function jobList(jobs){
       <div class="jl-prog"><div class="track"><i style="width:${s.pct}%"></i></div><span>${s.done}/${s.total}</span></div>
       <div class="jl-due due ${isOpen(job)?dueClass(job.due):''}">${job.due ? esc(fmtDate(job.due)) : '<span class="muted">—</span>'}</div>
       <div class="jl-booked">${esc(ago(job.createdAt))}</div>
-      <div class="jl-est">${s.est ? money(s.est) : '<span class="muted">TBC</span>'}</div>
+      <div class="jl-est">${s.invoice ? money(s.invoice) : s.est ? `<span class="muted">est. ${money(s.est)}</span>` : '<span class="muted">TBC</span>'}</div>
       <div class="jl-flags">${nr?`<span class="fl-new" title="New customer requests">🔔 ${nr}</span>`:''}${s.parts.length?`<span class="fl-parts" title="Parts used">🔩 ${s.parts.length}</span>`:''}${jobNotes(job).length?`<span class="fl-parts" title="Notes">📝 ${jobNotes(job).length}</span>`:''}<span class="chev">${open?'▴':'▾'}</span></div>
     </div>${open ? `<div class="jl-card">${jobCard(job)}</div>` : ''}`;
   }).join('');
@@ -1843,7 +1877,8 @@ function phoneForJob(job){
 function waMessageFor(job){
   const s = stats(job), hi = `Hi ${firstName(job.customer)}`, bike = job.bike ? `your ${job.bike}` : 'your bike';
   const done = s.items.filter(i => i.done).map(i => i.text), todo = s.items.filter(i => !i.done).map(i => i.text);
-  const total = s.est ? `\nEstimated total: ${money(s.est)}${s.partsTotal ? ` (work ${money(s.work)} + parts ${money(s.partsTotal)})` : ''}` : '';
+  const total = s.invoice ? `\nTotal: ${money(s.invoice)}${s.labourTotal && s.partsTotal ? ` (labour ${money(s.labourTotal)} + parts ${money(s.partsTotal)})` : ''}`
+    : s.est ? `\nEstimated total: ${money(s.est)}` : '';
   const sign = `\n– Enduroworx Plettenberg Bay`, track = `${jobNoOf(job) ? `\nJob no: ${jobNoOf(job)}` : ''}\nFollow your bike here: ${jobUrl(job.id)}`;
   switch(job.status){
     case 'ready':
@@ -2133,7 +2168,7 @@ function qbRows(jobs){
   for(const job of jobs){
     const s = stats(job), no = jobNoOf(job);
     const lines = [
-      ...s.items.filter(i => i.done).map(i => [QB.labourItem, i.text, 1, +i.cost||0, +i.cost||0]),
+      ...s.labour.map(p => [QB.labourItem, p.name, +p.qty||1, +p.price||0, partLine(p)]),
       ...s.parts.map(p => [QB.partsItem, `${p.name}${p.partNo ? ` (${p.partNo})` : ''}`, +p.qty||1, +p.price||0, partLine(p)]),
     ];
     lines.forEach(([item, desc, qty, rate, amt], k) => {
@@ -2169,7 +2204,7 @@ function openQbDialog(){
   dlg.innerHTML = `<div class="dbody">
     <h2>QuickBooks CSV</h2>
     <p class="hint" style="margin-top:0">One file with an invoice per job, numbered with the job number. Only ticked work and parts are included.</p>
-    <ul class="qblist">${all.map(j => { const st = stats(j), tot = st.items.filter(i=>i.done).reduce((a,i)=>a+(+i.cost||0),0) + st.partsTotal;
+    <ul class="qblist">${all.map(j => { const st = stats(j), tot = st.invoice;
       return `<li><label><input type="checkbox" value="${j.id}" ${j.qbExportedAt ? '' : 'checked'}>
         <b>${esc(jobNoOf(j) || '—')}</b> <span>${esc(j.customer||'')}</span> <em>${money(tot)}</em>
         ${j.qbExportedAt ? `<small>exported ${esc(ago(j.qbExportedAt))}</small>` : ''}</label></li>`; }).join('') || '<li class="hint">No jobs waiting to be invoiced.</li>'}</ul>
@@ -2227,9 +2262,8 @@ async function accountsAction(job, kind, addr){
 }
 function accountsData(job){
   const s = stats(job), done = s.items.filter(i => i.done), notDone = s.items.filter(i => !i.done);
-  const workDone = done.reduce((a,i) => a + (+i.cost||0), 0);
   const d = ms => ms ? new Date(ms).toLocaleDateString('en-ZA',{day:'numeric',month:'short',year:'numeric',timeZone:'Africa/Johannesburg'}) : '';
-  return {s, done, notDone, workDone, total: workDone + s.partsTotal, no: jobNoOf(job) || '(no number yet)',
+  return {s, done, notDone, total: s.invoice, noLabour: !s.labour.length, no: jobNoOf(job) || '(no number yet)',
     booked:d(job.createdAt), collected:d(job.collectedAt), email:jobEmail(job), cell:showContact(jobCell(job))};
 }
 function accountsText(job){
@@ -2241,10 +2275,11 @@ function accountsText(job){
   if(job.bike) L.push(`Bike: ${job.bike}`);
   L.push(`Booked in: ${a.booked}${a.collected ? ` · Collected: ${a.collected}` : ''}`, '');
   L.push('WORK DONE');
-  a.done.length ? a.done.forEach(i => L.push(`- ${i.text}: ${i.cost ? money(i.cost) : 'no price'}`)) : L.push('- none');
-  if(a.notDone.length){ L.push('', 'NOT DONE (not included)'); a.notDone.forEach(i => L.push(`- ${i.text}${i.cost ? ` (${money(i.cost)})` : ''}`)); }
+  a.done.length ? a.done.forEach(i => L.push(`- ${i.text}`)) : L.push('- none');
+  if(a.notDone.length){ L.push('', 'NOT DONE'); a.notDone.forEach(i => L.push(`- ${i.text}`)); }
+  L.push('', 'LABOUR'); a.s.labour.length ? a.s.labour.forEach(p => L.push(`- ${p.name}: ${hrs(p.qty)} @ ${money(+p.price||0)}/h = ${money(partLine(p))}`)) : L.push('- none added');
   if(a.s.parts.length){ L.push('', 'PARTS'); a.s.parts.forEach(p => L.push(`- ${+p.qty||1} × ${p.name}${p.partNo ? ` [${p.partNo}]` : ''} @ ${money(+p.price||0)} = ${money(partLine(p))}`)); }
-  L.push('', `Work: ${money(a.workDone)}`, `Parts: ${money(a.s.partsTotal)}`, `TOTAL: ${money(a.total)}`);
+  L.push('', `Labour: ${money(a.s.labourTotal)}`, `Parts: ${money(a.s.partsTotal)}`, `TOTAL: ${money(a.total)}`);
   if(job.notes) L.push('', `Notes: ${job.notes}`);
   const nl = jobNotes(job); if(nl.length){ L.push('', 'JOB NOTES'); nl.forEach(n => L.push(`- ${n.text} (${n.by||''}, ${fmtStamp(n.t)})`)); }
   L.push('', `Job link: ${jobUrl(job.id)}`);
@@ -2253,7 +2288,7 @@ function accountsText(job){
 function accountsCsv(job){
   const a = accountsData(job), base = [a.no, a.booked, a.collected, job.customer||'', a.email, a.cell, job.bike||''];
   const rows = [['Job no','Booked in','Collected','Customer','Email','Cell','Bike','Type','Description','Part no','Qty','Unit price','Line total']];
-  a.done.forEach(i => rows.push([...base, 'Work', i.text, '', 1, +i.cost||0, +i.cost||0]));
+  a.s.labour.forEach(p => rows.push([...base, 'Labour', p.name, '', +p.qty||1, +p.price||0, partLine(p)]));
   a.s.parts.forEach(p => rows.push([...base, 'Part', p.name, p.partNo||'', +p.qty||1, +p.price||0, partLine(p)]));
   rows.push([...base, 'Total', '', '', '', '', a.total]);
   const cell = v => { const t = String(v ?? ''); return /[",\n;]/.test(t) ? `"${t.replace(/"/g,'""')}"` : t; };
@@ -2272,14 +2307,15 @@ function accountsSheetHtml(job){
   <div class="top"><div><h1>${e(SHOP_NAME)}</h1><div class="muted">Job sheet for invoicing</div></div><div class="r"><div class="muted">Job no</div><div class="no">${e(a.no)}</div></div></div>
   <div class="grid"><b>Customer</b><span>${e(job.customer||'')}</span>${a.email?`<b>Email</b><span>${e(a.email)}</span>`:''}${a.cell?`<b>Cell</b><span>${e(a.cell)}</span>`:''}
     ${job.bike?`<b>Bike</b><span>${e(job.bike)}</span>`:''}<b>Booked in</b><span>${e(a.booked)}</span>${a.collected?`<b>Collected</b><span>${e(a.collected)}</span>`:''}</div>
-  <table><tr><th>Work done</th><th></th><th class="r"></th><th class="r">Amount</th></tr>
-    ${a.done.map(i => tr(e(i.text), '', '', i.cost ? money(i.cost) : '—')).join('') || tr('<span class="muted">None</span>','')}</table>
+  <p><b>Work done:</b> ${a.done.length ? a.done.map(i => e(i.text)).join(', ') : '<span class="muted">none ticked</span>'}</p>
+  <table><tr><th>Labour</th><th></th><th class="r">Hours × rate</th><th class="r">Amount</th></tr>
+    ${a.s.labour.map(p => tr(e(p.name), '', `${hrs(p.qty)} × ${money(+p.price||0)}`, money(partLine(p)))).join('') || tr('<span class="muted">None added</span>','')}</table>
   ${a.s.parts.length ? `<table><tr><th>Part</th><th>Part no</th><th class="r">Qty × price</th><th class="r">Amount</th></tr>
     ${a.s.parts.map(p => tr(e(p.name), e(p.partNo||''), `${+p.qty||1} × ${money(+p.price||0)}`, money(partLine(p)))).join('')}</table>` : ''}
-  <table class="tot"><tr><td></td><td></td><td class="r">Work</td><td class="r">${money(a.workDone)}</td></tr>
+  <table class="tot"><tr><td></td><td></td><td class="r">Labour</td><td class="r">${money(a.s.labourTotal)}</td></tr>
     <tr><td></td><td></td><td class="r">Parts</td><td class="r">${money(a.s.partsTotal)}</td></tr>
     <tr><td></td><td></td><td class="r" style="font-size:16px">Total</td><td class="r" style="font-size:16px">${money(a.total)}</td></tr></table>
-  ${a.notDone.length ? `<p class="muted">Not done, not included: ${a.notDone.map(i => e(i.text)).join(', ')}</p>` : ''}
+  ${a.notDone.length ? `<p class="muted">Not done: ${a.notDone.map(i => e(i.text)).join(', ')}</p>` : ''}
   ${job.notes ? `<p><b>Notes:</b> ${e(job.notes)}</p>` : ''}
   ${jobNotes(job).length ? `<p><b>Job notes:</b></p><ul>${jobNotes(job).map(n => `<li>${e(n.text)} <span class="muted">(${e(n.by||'')}, ${e(fmtStamp(n.t))})</span></li>`).join('')}</ul>` : ''}
   </body></html>`;
@@ -2294,9 +2330,11 @@ function openAccountsDialog(job){
     <div class="accsheet">
       <div class="ash"><div><b>${esc(job.customer||'')}</b><span>${esc(job.bike||'')}</span></div><div class="ano">${esc(a.no)}</div></div>
       <div class="arow muted"><span>Booked in ${esc(a.booked)}${a.collected ? ` · collected ${esc(a.collected)}` : ''}</span></div>
-      ${a.done.map(i => `<div class="arow"><span>${esc(i.text)}</span><b>${i.cost ? money(i.cost) : '—'}</b></div>`).join('')}
+      ${a.done.length ? `<div class="arow muted"><span>Work done: ${a.done.map(i => esc(i.text)).join(', ')}</span></div>` : ''}
+      ${a.s.labour.map(p => `<div class="arow"><span>🔧 ${esc(p.name)} · ${hrs(p.qty)} × ${money(+p.price||0)}</span><b>${money(partLine(p))}</b></div>`).join('')}
+      ${a.noLabour ? `<div class="arow warn"><span>⚠️ No labour added yet. Add it under Parts &amp; labour on the job.</span></div>` : ''}
       ${a.s.parts.map(p => `<div class="arow"><span>🔩 ${+p.qty||1} × ${esc(p.name)}${p.partNo ? ` <i>${esc(p.partNo)}</i>` : ''}</span><b>${money(partLine(p))}</b></div>`).join('')}
-      ${a.notDone.length ? `<div class="arow warn"><span>Not done, left off: ${a.notDone.map(i => esc(i.text)).join(', ')}</span></div>` : ''}
+      ${a.notDone.length ? `<div class="arow muted"><span>Not done: ${a.notDone.map(i => esc(i.text)).join(', ')}</span></div>` : ''}
       <div class="arow tot"><span>Total</span><b>${money(a.total)}</b></div>
     </div>
     <label class="f">Accounts email</label>
@@ -2493,19 +2531,20 @@ app.addEventListener('click', async e => {
       const v = prompt('Edit item', it.text); if(v==null || !v.trim()) return;
       act(() => B().updateJob(id, {[`items.${item}.text`]:v.trim(), ...touch()})); break; }
     case 'edit-cost': {
-      const v = prompt(`Estimated cost (${CURRENCY})`, it.cost||''); if(v==null) return;
+      const v = prompt(`Estimate for this task (${CURRENCY}). Only an estimate: the invoice uses Parts & labour.`, it.cost||''); if(v==null) return;
       act(() => B().updateJob(id, {[`items.${item}.cost`]:parseCost(v), ...touch()})); break; }
     case 'del-item':
       if(confirm(`Remove "${it.text}"?`)) act(() => B().updateJob(id, {[`items.${item}`]:B().del(), ...touch()})); break;
     case 'collected': act(() => B().updateJob(id, {status:'collected', collectedAt:Date.now(), ...touch()})); break;
     case 'add-part': addPart(id); break;
+    case 'add-labour': addLabour(id); break;
     case 'view': state.view[b.dataset.page] = b.dataset.v; localStorage.setItem('jobboard.view', JSON.stringify(state.view)); render(); break;
     case 'expand': state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); break;
-    case 'part-name': { const pt = job.parts[b.dataset.part]; const v = prompt('Part name', pt.name); if(v==null || !v.trim()) return;
+    case 'part-name': { const pt = job.parts[b.dataset.part]; const v = prompt(isLabour(pt) ? 'Labour description' : 'Part name', pt.name); if(v==null || !v.trim()) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.name`]:v.trim(), ...touch()})); break; }
-    case 'part-qty': { const pt = job.parts[b.dataset.part]; const v = prompt('Quantity', pt.qty||1); if(v==null) return;
+    case 'part-qty': { const pt = job.parts[b.dataset.part]; const v = prompt(isLabour(pt) ? 'Hours' : 'Quantity', pt.qty||1); if(v==null) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.qty`]:parseFloat(String(v).replace(',', '.')) || 1, ...touch()})); break; }
-    case 'part-price': { const pt = job.parts[b.dataset.part]; const v = prompt(`Price each (${CURRENCY})`, pt.price||''); if(v==null) return;
+    case 'part-price': { const pt = job.parts[b.dataset.part]; const v = prompt(isLabour(pt) ? `Rate per hour (${CURRENCY})` : `Price each (${CURRENCY})`, pt.price||''); if(v==null) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.price`]:parseCost(v), ...touch()})); break; }
     case 'add-note': addNote(id); break;
     case 'media-view': openLightbox(id, +b.dataset.i); break;
