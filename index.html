@@ -561,6 +561,7 @@ html.ro :is(.job,dialog) :is([data-act=add-item],[data-act=add-note],[data-act=a
 html.ro [data-act=new-job], html.ro .job select.stsel, html.ro .job input[type=checkbox], html.ro .job .addrow :is(input,button){opacity:.45;cursor:not-allowed}
 html .banner.pvbanner,html.light .banner.pvbanner{background:#ede9fe;border-color:#c4b5fd;color:#4c1d95}
 html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:#ede9fe}
+.mthumb .mnothumb{display:grid;place-items:center;width:100%;height:100%;font-size:30px;background:#0002}
 </style>
 </head>
 <body>
@@ -576,7 +577,7 @@ html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.11.0";
+const APP_VERSION = "2.12.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -637,6 +638,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.12.0","26 Nov","Photos and videos on each job, stored in Cloudflare (staff add, customers see)"],
   ["2.11.0","26 Nov","Clearer job cards; To invoice now holds Ready, Collected and Invoiced with its own filter"],
   ["2.10.0","25 Nov","Light or dark theme (sun / moon button at the top); Booked in filter moved first"],
   ["2.9.3","25 Nov","Cleaner spacing on job cards; status dropdown coloured by status"],
@@ -844,6 +846,7 @@ async function firebaseBackend(){
       catch(e){ verifier.clear(); verifier = null; document.getElementById('recaptcha').innerHTML=''; throw e; }
     },
     signOut: () => A.signOut(auth),
+    idToken: () => auth.currentUser ? auth.currentUser.getIdToken() : Promise.reject(new Error('Sign in first')),
     // Customers don't sign in: they get a silent anonymous session (no email, no quota)
     async signInAnon(){ await auth.authStateReady(); if(!auth.currentUser) await A.signInAnonymously(auth); },
     // A customer's own jobs, opened by their private job links
@@ -1305,32 +1308,79 @@ function mediaPanel(job){
   return `<details class="parts mediap" data-id="${id}" ${open?'open':''}>
     <summary>📷 Photos <span class="psum">${sum}</span></summary>
     ${list.length ? `<div class="mgrid">${list.map((m,i) => `<button class="mthumb" data-act="media-view" data-id="${id}" data-i="${i}" title="${esc(m.caption||'')}">
-        <img src="${m.thumb || m.url}" alt="${esc(m.caption||'Photo')}" loading="lazy">${m.type==='video' ? `<span class="mplay">${PLAY_ICON}</span>` : ''}
+        ${m.type==='video' && !m.thumb ? `<span class="mnothumb">🎬</span>` : `<img src="${m.thumb || m.url}" alt="${esc(m.caption||'Photo')}" loading="lazy">`}${m.type==='video' ? `<span class="mplay">${PLAY_ICON}</span>` : ''}
         ${m.itemText ? `<span class="mtag">${esc(m.itemText)}</span>` : ''}</button>`).join('')}</div>` : ''}
     ${staff && mediaOk() ? `<div class="madd"><label class="btn small">📷 Add photos / videos<input type="file" accept="image/*,video/*" multiple hidden data-media-up="${id}"></label>
       <span class="hint">From the iPhone: take new or pick from Photos (incl. Meta glasses). On the Mac: drop files here.</span></div>` : ''}
   </details>`;
 }
-async function shrinkImage(file, max){
-  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = URL.createObjectURL(file); });
+const MEDIA_MAX_MB = 95;
+async function shrinkImage(file, max, asBlob){
+  const img = await new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => bad(new Error("this photo format can't be read")); i.src = URL.createObjectURL(file); });
   const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
   const c = Object.assign(document.createElement('canvas'), {width:Math.round(img.naturalWidth*k), height:Math.round(img.naturalHeight*k)});
   c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(img.src);
+  if(asBlob) return {blob: await new Promise(ok => c.toBlob(ok, 'image/jpeg', .82)), w:c.width, h:c.height};
   return {url:c.toDataURL('image/jpeg', .8), w:c.width, h:c.height};
 }
+// A frame of a video as a small JPEG for the thumbnail (best effort: not every browser can read every video format)
+async function videoPoster(file){
+  try{
+    const v = document.createElement('video'); v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = URL.createObjectURL(file);
+    await new Promise((ok, bad) => { v.onloadeddata = ok; v.onerror = bad; setTimeout(bad, 8000); });
+    v.currentTime = Math.min(1, (v.duration || 2) / 2); await new Promise(ok => { v.onseeked = ok; setTimeout(ok, 3000); });
+    const k = Math.min(1, 360 / Math.max(v.videoWidth, v.videoHeight));
+    const c = Object.assign(document.createElement('canvas'), {width:Math.round(v.videoWidth*k), height:Math.round(v.videoHeight*k)});
+    c.getContext('2d').drawImage(v, 0, 0, c.width, c.height); URL.revokeObjectURL(v.src);
+    return {blob: await new Promise(ok => c.toBlob(ok, 'image/jpeg', .8)), w:v.videoWidth, h:v.videoHeight};
+  }catch(e){ return null; }
+}
+// Sends one file to the Cloudflare media store; onPct gets 0-100 while it uploads
+async function putMedia(jobId, blob, ext, onPct){
+  const token = await B().idToken();
+  return new Promise((ok, bad) => {
+    const x = new XMLHttpRequest();
+    x.open('POST', `${MEDIA_UPLOAD_URL}/upload?job=${encodeURIComponent(jobId)}&ext=${ext}`);
+    x.setRequestHeader('Authorization', 'Bearer ' + token);
+    x.upload.onprogress = e => e.lengthComputable && onPct && onPct(Math.round(e.loaded / e.total * 100));
+    x.onload = () => { let r = {}; try{ r = JSON.parse(x.responseText); }catch(e){}
+      x.status === 200 ? ok(r) : bad(new Error(r.error || `upload failed (${x.status})`)); };
+    x.onerror = () => bad(new Error('no connection to the photo store'));
+    x.send(blob);
+  });
+}
+const extOf = f => { const e = (f.name.split('.').pop() || '').toLowerCase(); return f.type === 'video/quicktime' ? 'mov' : f.type === 'video/mp4' ? 'mp4' : (['mp4','mov','m4v','webm'].includes(e) ? e : 'mp4'); };
 async function uploadMedia(id, files){
-  files = [...files]; if(!files.length) return;
-  let n = 0;
+  files = [...files].filter(f => f.type.startsWith('image/') || f.type.startsWith('video/')); if(!files.length) return;
+  const live = B().mode === 'live';
+  let n = 0, i = 0;
   for(const f of files){
-    if(f.type.startsWith('video/')){ toast('Videos need the photo storage connected (coming next)'); continue; }
-    if(!f.type.startsWith('image/')) continue;
+    i++; const tag = files.length > 1 ? ` ${i} of ${files.length}` : '';
+    const isVid = f.type.startsWith('video/');
     try{
-      const big = await shrinkImage(f, 1600), small = await shrinkImage(f, 360);
-      await B().updateJob(id, {[`media.${uid()}`]:{type:'image', url:big.url, thumb:small.url, w:big.w, h:big.h, by:myName(), byUid:state.user.uid, t:Date.now()}, ...touch()});
+      if(isVid && !live){ toast('Videos only work on the live site'); continue; }
+      if(isVid && f.size > MEDIA_MAX_MB * 1048576){ toast(`That video is ${Math.round(f.size/1048576)} MB. Max is ${MEDIA_MAX_MB} MB, so trim it shorter first.`); continue; }
+      const entry = {by:myName(), byUid:state.user.uid, t:Date.now()};
+      if(!live){
+        const big = await shrinkImage(f, 1600), small = await shrinkImage(f, 360);
+        Object.assign(entry, {type:'image', url:big.url, thumb:small.url, w:big.w, h:big.h});
+      } else if(isVid){
+        toast(`Uploading video${tag}…`);
+        const poster = await videoPoster(f);
+        const up = await putMedia(id, f, extOf(f), p => toast(`Uploading video${tag}… ${p}%`));
+        const th = poster?.blob ? await putMedia(id, poster.blob, 'jpg') : null;
+        Object.assign(entry, {type:'video', url:up.url, key:up.key, size:up.size, ...(th ? {thumb:th.url, thumbKey:th.key} : {}), ...(poster ? {w:poster.w, h:poster.h} : {})});
+      } else {
+        toast(`Uploading photo${tag}…`);
+        const big = await shrinkImage(f, 1600, true), small = await shrinkImage(f, 360, true);
+        const a = await putMedia(id, big.blob, 'jpg', p => toast(`Uploading photo${tag}… ${p}%`)), b = await putMedia(id, small.blob, 'jpg');
+        Object.assign(entry, {type:'image', url:a.url, key:a.key, thumb:b.url, thumbKey:b.key, w:big.w, h:big.h});
+      }
+      await B().updateJob(id, {[`media.${uid()}`]:entry, ...touch()});
       n++;
-    }catch(e){ toast('Could not add a photo: ' + e.message); }
+    }catch(e){ toast(`Could not add ${isVid?'a video':'a photo'}: ${e.message}`); }
   }
-  if(n) toast(`${n} photo${n===1?'':'s'} added`);
+  if(n) toast(`${n} ${n===1?'file':'files'} added`);
 }
 let lb = null;
 function openLightbox(id, i){

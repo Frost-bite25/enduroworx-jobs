@@ -1,0 +1,17 @@
+# EnduroWorx photo & video storage (Cloudflare Worker + R2).
+# Deployed automatically by .github/workflows/deploy-worker.yml when anything in worker/ changes.
+name = "enduroworx-media"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[r2_buckets]]
+binding = "MEDIA"
+bucket_name = "enduroworx-media"
+
+[vars]
+FIREBASE_PROJECT_ID = "enduroworx-jobs"
+# Must match STAFF in index.html and staffList() in firestore.rules
+STAFF = "erik@enduroworx.co.za,+27832716949,shannon@manapp.co.za,nathan@enduroworx.co.za"
+ALLOWED_ORIGINS = "https://tools.enduroworx.co.za"
+MAX_MB = "95"

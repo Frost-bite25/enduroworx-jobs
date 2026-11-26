@@ -35,7 +35,7 @@ service cloud.firestore {
                                      && request.resource.data.keys().size() < 30
                                      && (!('jobNo' in request.resource.data)
                                          || request.resource.data.jobNo == getAfter(/databases/$(db)/documents/meta/counter).data.n));
-      // Customers holding the link can add/edit their requests, but not change the status, name, email or parts
+      // Customers holding the link can add/edit their requests, but not change the status, name, email, parts, notes or photos
       allow update: if isStaff() || (signedIn()
                                      && request.resource.data.status == resource.data.status
                                      && request.resource.data.get('customer', '') == resource.data.get('customer', '')
@@ -43,7 +43,8 @@ service cloud.firestore {
                                      && request.resource.data.get('jobNo', 0) == resource.data.get('jobNo', 0)
                                      && request.resource.data.get('notesLog', {}) == resource.data.get('notesLog', {})
                                      && request.resource.data.get('sentToAccountsAt', 0) == resource.data.get('sentToAccountsAt', 0)
-                                     && request.resource.data.get('parts', {}) == resource.data.get('parts', {}));
+                                     && request.resource.data.get('parts', {}) == resource.data.get('parts', {})
+                                     && request.resource.data.get('media', {}) == resource.data.get('media', {}));
       allow delete: if isStaff();
     }
 
