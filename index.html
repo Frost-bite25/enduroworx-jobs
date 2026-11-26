@@ -564,6 +564,24 @@ html.ro [data-act=new-job], html.ro .job select.stsel, html.ro .job input[type=c
 html .banner.pvbanner,html.light .banner.pvbanner{background:#ede9fe;border-color:#c4b5fd;color:#4c1d95}
 html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:#ede9fe}
 .mthumb .mnothumb{display:grid;place-items:center;width:100%;height:100%;font-size:30px;background:#0002}
+
+/* ---- full-size job view ---- */
+.fullbtn{background:none;border:1px solid var(--line);color:var(--muted);border-radius:8px;width:32px;height:32px;font-size:17px;line-height:1;cursor:pointer;flex:0 0 auto;margin-left:auto}
+.fullbtn:hover{color:var(--ink,#fff);border-color:var(--muted)}
+.jtop .fullbtn + select, .jtop .fullbtn + .spill{margin-left:0}
+html.fullopen, html.fullopen body{overflow:hidden}
+.fullwrap{position:fixed;inset:0;z-index:50;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);display:flex;justify-content:center;padding:20px}
+.fullbox{width:min(1240px,100%);max-height:100%;overflow:auto;-webkit-overflow-scrolling:touch;border-radius:18px;background:var(--bg);box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.fullbar{position:sticky;top:0;z-index:2;display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--bg);border-bottom:1px solid var(--line)}
+.fullttl{font-weight:700;font-size:16px}
+.job.full{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);column-gap:28px;margin:18px;padding-bottom:18px}
+.job.full > .jhead, .job.full > .jfoot{grid-column:1 / -1}
+.job.full .fcol{min-width:0} .job.full .fright > details{margin-top:12px}
+.job.full .fleft > :first-child{margin-top:14px}
+.job.full h3{font-size:28px}
+.job.full .mgrid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px}
+.job.full .jhead .jmeta{display:flex;flex-wrap:wrap;gap:4px 18px}
+@media (max-width:860px){ .job.full{grid-template-columns:1fr} .fullwrap{padding:0} .fullbox{border-radius:0} .job.full{margin:12px} }
 </style>
 </head>
 <body>
@@ -579,7 +597,7 @@ html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.14.0";
+const APP_VERSION = "2.15.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -640,6 +658,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.15.0","26 Nov","⤢ button on each job opens it full size over the board, in two columns with every section open"],
   ["2.14.0","26 Nov","Costing: task prices are estimates only; the invoice now comes from Parts & labour (new Add labour: hours × rate)"],
   ["2.13.0","26 Nov","Automatic photo clean-up: photos kept 2 years, videos 3 months, deleted items cleared after 30 days"],
   ["2.12.1","26 Nov","Job Link button: copies reliably on iPad/iPhone and shows the link with a Share option"],
@@ -1197,12 +1216,43 @@ const isCustItem = (it, job) => byCustomer(it) || (it.fromCustomer === undefined
 const isNewReq = it => byCustomer(it) && it.seen !== true && !it.done;
 const newReqs = job => itemsOf(job).filter(isNewReq);
 
+// ---- Full-size job view (⤢): the same card maximised over the board, in two columns with every section open.
+// Cards on the board stay as they were (sections closed unless opened there).
+function openFull(id){ state.full = id; if(state.staff) watchJobLog(id); render(); }
+function closeFull(){ if(!state.full) return; state.full = null; render(); }
+function fullJob(job){
+  const id = job.id, sets = [state.notesOpen, state.mediaOpen, state.partsOpen, state.histOpen], had = sets.map(x => x.has(id));
+  sets.forEach(x => x.add(id));                       // render every section open for the big view only…
+  const html = jobCard(job).trim();
+  sets.forEach((x, i) => { if(!had[i]) x.delete(id); });   // …then put the board card back as it was
+  const t = document.createElement('template'); t.innerHTML = html;
+  const card = t.content.firstElementChild; card.classList.add('full');
+  const left = document.createElement('div'), right = document.createElement('div');
+  left.className = 'fcol fleft'; right.className = 'fcol fright';
+  const foot = card.querySelector(':scope > .jfoot');
+  [...card.children].forEach(el => {
+    if(el === foot) return;
+    (el.matches('details.parts') && !el.matches('.notesp') ? right : left).appendChild(el);
+  });
+  card.querySelectorAll('details.parts').forEach(d => d.setAttribute('open', ''));
+  const head = left.querySelector('.jhead'); if(head) card.prepend(head);
+  card.insertBefore(left, foot); card.insertBefore(right, foot);
+  return card.outerHTML;
+}
+function renderFull(){
+  const job = state.jobs[state.full];
+  if(!job){ state.full = null; return ''; }
+  const bar = `<div class="fullbar"><button class="btn small ghost" data-act="full-close">✕ Close</button>
+    <span class="fullttl">${esc(job.customer||'')}${jobNoOf(job) ? ` · ${jobNoOf(job)}` : ''}</span></div>`;
+  return `<div class="fullwrap"><div class="fullbox">${bar}${fullJob(job)}</div></div>`;
+}
 function jobCard(job){
   const s = stats(job), id = job.id, staff = state.staff;
   const contact = [staff && showContact(jobCell(job)), staff && jobEmail(job)].filter(Boolean).map(x => `<span class="nw">${esc(x)}</span>`).join(' · ');
   return `<div class="job s-${esc(job.status)}">
     <div class="jhead">
       <div class="jtop"><div class="jtags">${makeBadge(job.bike)}${jobNoTag(job)}</div>
+      ${state.full === id ? '' : `<button class="fullbtn" data-act="full" data-id="${id}" title="Open this job full size" aria-label="Open full size">⤢</button>`}
       ${staff
         ? `<select class="stsel st-${esc(job.status)}" data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
             `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select>`
@@ -2539,6 +2589,8 @@ app.addEventListener('click', async e => {
     case 'add-part': addPart(id); break;
     case 'add-labour': addLabour(id); break;
     case 'view': state.view[b.dataset.page] = b.dataset.v; localStorage.setItem('jobboard.view', JSON.stringify(state.view)); render(); break;
+    case 'full': openFull(id); break;
+    case 'full-close': closeFull(); break;
     case 'expand': state.expanded.has(id) ? state.expanded.delete(id) : state.expanded.add(id); render(); break;
     case 'part-name': { const pt = job.parts[b.dataset.part]; const v = prompt(isLabour(pt) ? 'Labour description' : 'Part name', pt.name); if(v==null || !v.trim()) return;
       act(() => B().updateJob(id, {[`parts.${b.dataset.part}.name`]:v.trim(), ...touch()})); break; }
@@ -2581,13 +2633,15 @@ app.addEventListener('dragover', e => { const d = e.target.closest?.('details.me
 app.addEventListener('dragleave', e => { e.target.closest?.('details.mediap')?.classList.remove('drop'); });
 app.addEventListener('drop', e => { const d = e.target.closest?.('details.mediap'); if(!d || !state.staff || !mediaOk()) return; e.preventDefault(); d.classList.remove('drop'); uploadMedia(d.dataset.id, e.dataTransfer.files); });
 app.addEventListener('toggle', e => {
-  const d = e.target; if(!d.matches?.('details.parts')) return;
+  const d = e.target; if(!d.matches?.('details.parts') || d.closest('.job.full')) return;
   const set = d.classList.contains('hist') ? state.histOpen : d.classList.contains('notesp') ? state.notesOpen : d.classList.contains('mediap') ? state.mediaOpen : state.partsOpen;
   if(d.open === set.has(d.dataset.id)) return;
   d.open ? set.add(d.dataset.id) : set.delete(d.dataset.id);
   if(d.classList.contains('hist')){ if(d.open) watchJobLog(d.dataset.id); render(); }
 }, true);
 app.addEventListener('input', e => { const k = e.target.dataset.draft; if(k){ state.drafts[k] = e.target.value; if(k === 'csearch' || k === 'lsearch') render(); } });
+app.addEventListener('click', e => { if(e.target.matches?.('.fullwrap')) closeFull(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape' && state.full && !dlg.open && !lb) closeFull(); });
 app.addEventListener('keydown', e => {
   const k = e.target.dataset?.draft;
   if(e.key === 'Enter' && k && /^[tc]:/.test(k)){ e.preventDefault(); addItem(k.slice(2)); }
@@ -2678,10 +2732,14 @@ function render(){
   }
   const ae = document.activeElement, key = ae?.dataset?.draft;
   let sel = null; try{ sel = key ? [ae.selectionStart, ae.selectionEnd] : null; }catch{}
+  const fb = app.querySelector('.fullbox'), fbTop = fb ? fb.scrollTop : 0;
+  const board = state.phase === 'board' && state.full && state.jobs[state.full];
   app.innerHTML = state.phase === 'loading' ? `<div class="empty" style="margin-top:20vh">Loading…</div>`
     : state.phase === 'login' ? renderLogin()
     : state.phase === 'profile' ? renderProfile()
-    : renderBoard();
+    : renderBoard() + (board ? renderFull() : '');
+  document.documentElement.classList.toggle('fullopen', !!board);
+  if(fbTop){ const n = app.querySelector('.fullbox'); if(n) n.scrollTop = fbTop; }
   if(key){
     const el = app.querySelector(`[data-draft="${CSS.escape(key)}"]`);
     if(el){ el.focus(); try{ sel && el.setSelectionRange(...sel); }catch{} }
