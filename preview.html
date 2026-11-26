@@ -786,8 +786,8 @@ const params = new URLSearchParams(location.search);
 const VIEW = params.get('view') === 'tv' ? 'tv' : 'app';
 const SCREEN_TOKEN = params.get('screen') || '';
 const LIVE = !!FIREBASE_CONFIG;
-const IS_PREVIEW = /preview\.html$/.test(location.pathname);
-const baseUrl = () => location.origin + location.pathname.replace(/preview\.html$/, '');
+const IS_PREVIEW = true; // this file is the preview page: always read-only, at /preview or /preview.html
+const baseUrl = () => location.origin + location.pathname.replace(/preview(\.html)?\/?$/, '');
 const jobUrl = id => `${baseUrl()}?job=${encodeURIComponent(id)}`;
 const OPEN_JOB = params.get('job') || '';
 // Jobs this phone has booked or opened (their private links), and the customer's details for next time
