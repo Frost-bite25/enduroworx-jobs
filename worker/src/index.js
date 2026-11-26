@@ -1,8 +1,12 @@
 // EnduroWorx media Worker
 //  POST /upload?job=<jobId>&ext=<jpg|mp4|mov|...>   (staff only: Firebase ID token in Authorization: Bearer ...)
 //        body = the file. Returns {key, url}.
+//  POST /bin  {keys:[...]}  (staff only) moves files to bin/, where they're removed for good after 30 days
 //  GET  /m/<key>   serves the file to anyone with the link (keys are long and random). Supports Range for video.
+// Clean-up is done by R2 lifecycle rules (worker/lifecycle.json): img/ 2 years, vid/ 3 months, bin/ 30 days.
 const JWKS_URL = 'https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com';
+const VIDEO = new Set(['mp4','mov','m4v','webm']);
+const KEY_RE = /^(jobs|img|vid)\/[A-Za-z0-9_-]+\/[a-z0-9]+-[a-z0-9]+\.[a-z0-9]+$/;
 const TYPES = {jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', webp:'image/webp', heic:'image/heic',
                mp4:'video/mp4', mov:'video/quicktime', m4v:'video/x-m4v', webm:'video/webm'};
 let jwksCache = null;
@@ -14,6 +18,7 @@ export default {
     if (req.method === 'OPTIONS') return new Response(null, {status: 204, headers: cors});
     try {
       if (req.method === 'POST' && url.pathname === '/upload') return await upload(req, env, url, cors);
+      if (req.method === 'POST' && url.pathname === '/bin') return await bin(req, env, cors);
       if ((req.method === 'GET' || req.method === 'HEAD') && url.pathname.startsWith('/m/')) return await serve(req, env, url);
       if (url.pathname === '/') return new Response('EnduroWorx media', {headers: cors});
       return json({error: 'Not found'}, 404, cors);
@@ -43,7 +48,9 @@ async function upload(req, env, url, cors) {
   const max = Number(env.MAX_MB || 95) * 1024 * 1024;
   const len = Number(req.headers.get('Content-Length') || 0);
   if (len > max) throw fail(`File too big (max ${env.MAX_MB || 95} MB)`, 413);
-  const key = `jobs/${job}/${Date.now().toString(36)}-${rand(16)}.${ext}`;
+  // Videos (and their preview pictures, group=vid) go under vid/ so they expire sooner than photos
+  const group = VIDEO.has(ext) || url.searchParams.get('group') === 'vid' ? 'vid' : 'img';
+  const key = `${group}/${job}/${Date.now().toString(36)}-${rand(16)}.${ext}`;
   const obj = await env.MEDIA.put(key, req.body, {
     httpMetadata: {contentType: TYPES[ext], cacheControl: 'public, max-age=31536000, immutable'},
     customMetadata: {by: who, job}
@@ -52,9 +59,25 @@ async function upload(req, env, url, cors) {
   return json({key, url: `${url.origin}/m/${key}`, size: obj.size}, 200, cors);
 }
 
+async function bin(req, env, cors) {
+  const who = await verifyStaff(req, env);
+  let keys = [];
+  try { keys = (await req.json()).keys || []; } catch (e) {}
+  keys = keys.filter(k => typeof k === 'string' && KEY_RE.test(k)).slice(0, 10);
+  let moved = 0;
+  for (const k of keys) {
+    const obj = await env.MEDIA.get(k);
+    if (!obj) continue;
+    await env.MEDIA.put('bin/' + k, obj.body, {httpMetadata: obj.httpMetadata, customMetadata: {...obj.customMetadata, binnedBy: who}});
+    await env.MEDIA.delete(k);
+    moved++;
+  }
+  return json({moved}, 200, cors);
+}
+
 async function serve(req, env, url) {
   const key = decodeURIComponent(url.pathname.slice(3));
-  if (!/^jobs\/[A-Za-z0-9_-]+\/[a-z0-9]+-[a-z0-9]+\.[a-z0-9]+$/.test(key)) return new Response('Not found', {status: 404});
+  if (!KEY_RE.test(key)) return new Response('Not found', {status: 404});
   const range = req.headers.get('Range');
   const obj = await env.MEDIA.get(key, range ? {range: req.headers} : {});
   if (!obj) return new Response('Not found', {status: 404});

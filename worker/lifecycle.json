@@ -1,0 +1,56 @@
+{
+  "rules": [
+    {
+      "id": "photos-2-years",
+      "enabled": true,
+      "conditions": {
+        "prefix": "img/"
+      },
+      "deleteObjectsTransition": {
+        "condition": {
+          "type": "Age",
+          "maxAge": 63072000
+        }
+      }
+    },
+    {
+      "id": "videos-3-months",
+      "enabled": true,
+      "conditions": {
+        "prefix": "vid/"
+      },
+      "deleteObjectsTransition": {
+        "condition": {
+          "type": "Age",
+          "maxAge": 7776000
+        }
+      }
+    },
+    {
+      "id": "bin-30-days",
+      "enabled": true,
+      "conditions": {
+        "prefix": "bin/"
+      },
+      "deleteObjectsTransition": {
+        "condition": {
+          "type": "Age",
+          "maxAge": 2592000
+        }
+      }
+    },
+    {
+      "id": "early-uploads-2-years",
+      "enabled": true,
+      "conditions": {
+        "prefix": "jobs/"
+      },
+      "deleteObjectsTransition": {
+        "condition": {
+          "type": "Age",
+          "maxAge": 63072000
+        }
+      }
+    }
+  ]
+}

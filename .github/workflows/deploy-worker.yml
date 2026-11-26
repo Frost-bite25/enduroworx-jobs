@@ -15,4 +15,7 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: worker
-          command: deploy
+          # Deploy the Worker, then apply the automatic clean-up rules (worker/lifecycle.json)
+          command: |
+            deploy
+            r2 bucket lifecycle set enduroworx-media --file lifecycle.json --force

@@ -577,7 +577,7 @@ html:not(.light) .banner.pvbanner{background:#2e1065;border-color:#5b21b6;color:
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.12.0";
+const APP_VERSION = "2.13.0";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -638,6 +638,8 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.13.0","26 Nov","Automatic photo clean-up: photos kept 2 years, videos 3 months, deleted items cleared after 30 days"],
+  ["2.12.1","26 Nov","Job Link button: copies reliably on iPad/iPhone and shows the link with a Share option"],
   ["2.12.0","26 Nov","Photos and videos on each job, stored in Cloudflare (staff add, customers see)"],
   ["2.11.0","26 Nov","Clearer job cards; To invoice now holds Ready, Collected and Invoiced with its own filter"],
   ["2.10.0","25 Nov","Light or dark theme (sun / moon button at the top); Booked in filter moved first"],
@@ -1298,7 +1300,10 @@ function addNote(id){
 // the live site will store them in Cloudflare R2 (MEDIA_UPLOAD_URL), so until that's set the Add button is hidden.
 const MEDIA_UPLOAD_URL = "https://enduroworx-media.enduroworx.workers.dev";
 const mediaOk = () => B()?.mode !== 'live' || !!MEDIA_UPLOAD_URL;
-const jobMedia = job => Object.entries(job.media || {}).map(([mid, m]) => ({id:mid, ...m})).filter(m => !m.deleted).sort((a,b) => (a.t||0) - (b.t||0));
+// Automatic clean-up (Cloudflare rules in worker/lifecycle.json): photos kept 2 years, videos 3 months, bin 30 days
+const KEEP_DAYS = {image:730, video:90};
+const mediaExpired = m => !!m.key && Date.now() - (m.t||0) > (KEEP_DAYS[m.type] || 730) * 864e5;
+const jobMedia = job => Object.entries(job.media || {}).map(([mid, m]) => ({id:mid, ...m})).filter(m => !m.deleted && !mediaExpired(m)).sort((a,b) => (a.t||0) - (b.t||0));
 const PLAY_ICON = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="#000a"/><path d="M10 8l6 4-6 4z" fill="#fff"/></svg>`;
 function mediaPanel(job){
   const id = job.id, list = jobMedia(job), staff = state.staff, open = state.mediaOpen.has(id);
@@ -1311,7 +1316,7 @@ function mediaPanel(job){
         ${m.type==='video' && !m.thumb ? `<span class="mnothumb">🎬</span>` : `<img src="${m.thumb || m.url}" alt="${esc(m.caption||'Photo')}" loading="lazy">`}${m.type==='video' ? `<span class="mplay">${PLAY_ICON}</span>` : ''}
         ${m.itemText ? `<span class="mtag">${esc(m.itemText)}</span>` : ''}</button>`).join('')}</div>` : ''}
     ${staff && mediaOk() ? `<div class="madd"><label class="btn small">📷 Add photos / videos<input type="file" accept="image/*,video/*" multiple hidden data-media-up="${id}"></label>
-      <span class="hint">From the iPhone: take new or pick from Photos (incl. Meta glasses). On the Mac: drop files here.</span></div>` : ''}
+      <span class="hint">From the iPhone: take new or pick from Photos (incl. Meta glasses). On the Mac: drop files here. Photos are kept 2 years, videos 3 months.</span></div>` : ''}
   </details>`;
 }
 const MEDIA_MAX_MB = 95;
@@ -1336,11 +1341,11 @@ async function videoPoster(file){
   }catch(e){ return null; }
 }
 // Sends one file to the Cloudflare media store; onPct gets 0-100 while it uploads
-async function putMedia(jobId, blob, ext, onPct){
+async function putMedia(jobId, blob, ext, onPct, group){
   const token = await B().idToken();
   return new Promise((ok, bad) => {
     const x = new XMLHttpRequest();
-    x.open('POST', `${MEDIA_UPLOAD_URL}/upload?job=${encodeURIComponent(jobId)}&ext=${ext}`);
+    x.open('POST', `${MEDIA_UPLOAD_URL}/upload?job=${encodeURIComponent(jobId)}&ext=${ext}${group ? `&group=${group}` : ''}`);
     x.setRequestHeader('Authorization', 'Bearer ' + token);
     x.upload.onprogress = e => e.lengthComputable && onPct && onPct(Math.round(e.loaded / e.total * 100));
     x.onload = () => { let r = {}; try{ r = JSON.parse(x.responseText); }catch(e){}
@@ -1348,6 +1353,11 @@ async function putMedia(jobId, blob, ext, onPct){
     x.onerror = () => bad(new Error('no connection to the photo store'));
     x.send(blob);
   });
+}
+// Moves deleted files into the store's bin (removed for good after 30 days). Quiet: the job already hides them.
+async function binMedia(keys){
+  keys = keys.filter(Boolean); if(!keys.length || !MEDIA_UPLOAD_URL || B().mode !== 'live') return;
+  try{ await fetch(`${MEDIA_UPLOAD_URL}/bin`, {method:'POST', headers:{'Authorization':'Bearer ' + await B().idToken(), 'Content-Type':'application/json'}, body:JSON.stringify({keys})}); }catch(e){ console.warn('bin', e); }
 }
 const extOf = f => { const e = (f.name.split('.').pop() || '').toLowerCase(); return f.type === 'video/quicktime' ? 'mov' : f.type === 'video/mp4' ? 'mp4' : (['mp4','mov','m4v','webm'].includes(e) ? e : 'mp4'); };
 async function uploadMedia(id, files){
@@ -1368,7 +1378,7 @@ async function uploadMedia(id, files){
         toast(`Uploading video${tag}…`);
         const poster = await videoPoster(f);
         const up = await putMedia(id, f, extOf(f), p => toast(`Uploading video${tag}… ${p}%`));
-        const th = poster?.blob ? await putMedia(id, poster.blob, 'jpg') : null;
+        const th = poster?.blob ? await putMedia(id, poster.blob, 'jpg', null, 'vid') : null;
         Object.assign(entry, {type:'video', url:up.url, key:up.key, size:up.size, ...(th ? {thumb:th.url, thumbKey:th.key} : {}), ...(poster ? {w:poster.w, h:poster.h} : {})});
       } else {
         toast(`Uploading photo${tag}…`);
@@ -1391,7 +1401,7 @@ function openLightbox(id, i){
     el.addEventListener('click', e => { const a = e.target.closest('[data-lb]')?.dataset.lb;
       if(a === 'prev') lbGo(-1); else if(a === 'next') lbGo(1); else if(a === 'close' || e.target === el) closeLightbox();
       else if(a === 'del'){ const m = jobMedia(state.jobs[lb.id])[lb.i];
-        if(m && confirm('Move this to the bin? It can be restored for 30 days.')){ act(() => B().updateJob(lb.id, {[`media.${m.id}.deleted`]:Date.now(), [`media.${m.id}.deletedBy`]:myName(), ...touch()})); closeLightbox(); } } });
+        if(m && confirm('Delete this? It goes to the bin and is removed for good after 30 days.')){ const jid = lb.id; act(async () => { await B().updateJob(jid, {[`media.${m.id}.deleted`]:Date.now(), [`media.${m.id}.deletedBy`]:myName(), ...touch()}); binMedia([m.key, m.thumbKey]); }); closeLightbox(); } } });
     let x0 = null; el.addEventListener('touchstart', e => x0 = e.touches[0].clientX, {passive:true});
     el.addEventListener('touchend', e => { if(x0 == null) return; const dx = e.changedTouches[0].clientX - x0; if(Math.abs(dx) > 50) lbGo(dx < 0 ? 1 : -1); x0 = null; });
     document.addEventListener('keydown', e => { if(!lb) return; if(e.key === 'Escape') closeLightbox(); if(e.key === 'ArrowRight') lbGo(1); if(e.key === 'ArrowLeft') lbGo(-1); });
@@ -2369,6 +2379,8 @@ dlg.addEventListener('click', async e => {
       case 'ex-csv': exportJobs(); break;
       case 'ex-json': exportBackup(); break;
       case 'qr-copy': copyText(baseUrl(), dlg.querySelector('input.url')); break;
+      case 'link-copy': copyText(jobUrl(b.dataset.id), dlg.querySelector('input.url'), ok => { const p = dlg.querySelector('.lkstate'); if(p) p.textContent = ok ? '✓ Copied to the clipboard' : 'Press and hold the link to copy it.'; }); break;
+      case 'link-share': navigator.share({title:SHOP_NAME, text:'Follow your bike here', url:jobUrl(b.dataset.id)}).catch(()=>{}); break;
       case 'qr-share': navigator.share({title:SHOP_NAME, text:'Book your bike in or follow its progress', url:baseUrl()}).catch(()=>{}); break;
       case 'add': {
         const name = prompt('Name this screen', 'Workshop TV'); if(name == null) return;
@@ -2384,14 +2396,37 @@ dlg.addEventListener('click', async e => {
   }catch(err){ toast(friendlyError(err)); }
 });
 // Copy must start straight from the tap (iOS blocks the clipboard otherwise). Falls back to selecting the link.
-function copyText(t, input){
+function copyText(t, input, done){
+  const report = ok => { toast(ok ? 'Link copied' : 'Press and hold the link to copy it'); done && done(ok); };
   const fallback = () => {
-    if(input){ input.focus(); input.select(); input.setSelectionRange(0, t.length); }
+    let el = input, tmp = null;
+    if(!el){ tmp = el = Object.assign(document.createElement('textarea'), {value:t}); el.setAttribute('readonly', '');
+      el.style.cssText = 'position:fixed;top:0;left:0;opacity:0;font-size:16px'; (dlg.open ? dlg : document.body).appendChild(el); }
+    el.focus(); el.select(); el.setSelectionRange(0, t.length);
     let ok = false; try{ ok = document.execCommand('copy'); }catch{}
-    toast(ok ? 'Link copied' : 'Link selected — press and hold it to copy');
+    if(tmp) tmp.remove();
+    report(ok);
   };
-  if(navigator.clipboard?.writeText) navigator.clipboard.writeText(t).then(() => toast('Link copied'), fallback);
+  if(navigator.clipboard?.writeText && window.isSecureContext) navigator.clipboard.writeText(t).then(() => report(true), fallback);
   else fallback();
+}
+// Job "Link" button: copies straight away and shows the link, with Share for WhatsApp/Mail/etc.
+function openLinkDialog(id){
+  const job = state.jobs[id] || {}, url = jobUrl(id);
+  dlg.dataset.kind = 'link';
+  dlg.innerHTML = `<div class="dbody">
+    <h2>Customer link</h2>
+    <p class="hint" style="margin-top:0">${esc(job.customer || '')}${jobNoOf(job) ? ` · ${jobNoOf(job)}` : ''}. Anyone with this link can follow this bike.</p>
+    <input class="url" readonly value="${esc(url)}" style="width:100%">
+    <p class="hint lkstate" style="margin:8px 0 0"></p>
+    <div class="dfoot">
+      ${navigator.share ? `<button class="btn" data-sact="link-share" data-id="${esc(id)}">Share…</button>` : ''}
+      <button class="btn" data-sact="link-copy" data-id="${esc(id)}">Copy link</button>
+      <button class="btn primary" data-sact="close">Done</button>
+    </div></div>`;
+  dlg.showModal();
+  const say = ok => { const p = dlg.querySelector('.lkstate'); if(p) p.textContent = ok ? '✓ Copied to the clipboard' : 'Tap Copy link, or press and hold the link to copy it.'; };
+  copyText(url, dlg.querySelector('input.url'), say);
 }
 dlg.addEventListener('focusin', e => { if(e.target.matches?.('input.url')) e.target.select(); });
 
@@ -2447,7 +2482,7 @@ app.addEventListener('click', async e => {
     case 'clear-filter': state.jobFilter = null; render(); break;
     case 'cust-jobs': state.jobFilter = {keys:b.dataset.keys.split('|'), name:b.dataset.name}; state.page = 'jobs'; state.tab = 'open'; render(); window.scrollTo(0,0); break;
     case 'cust-book': openJobDialog(null, {customer:b.dataset.name, email:b.dataset.email, cell:b.dataset.cell}); break;
-    case 'copy-job-link': copyText(jobUrl(id)); break;
+    case 'copy-job-link': openLinkDialog(id); break;
     case 'forget': if(confirm('Remove this bike from this phone? The workshop keeps its record.')){ forgetJob(id); startBoard(); } break;
     case 'staff-login': state.phase = 'login'; render(); window.scrollTo(0,0); break;
     case 'back-to-board': state.phase = 'board'; render(); break;
