@@ -24,27 +24,64 @@ service cloud.firestore {
         && exists(/databases/$(db)/documents/screens/$(get(/databases/$(db)/documents/screenSessions/$(request.auth.uid)).data.token));
     }
 
+    // ---- What a customer (anyone who isn't staff) may write to a job ----
+    // A booking: only the booking form's own fields, starting as "Booked in", made by this login.
+    function bookingOk() {
+      let d = request.resource.data;
+      return d.status == 'booked'
+        && d.keys().hasOnly(['bike', 'make', 'model', 'year', 'due', 'notes', 'updatedAt', 'customer', 'email', 'cell',
+                             'contactKey', 'status', 'createdAt', 'createdBy', 'items', 'jobNo'])
+        && d.get('createdBy', '') == request.auth.uid
+        && d.get('items', {}) is map && d.get('items', {}).size() <= 30
+        && d.get('notes', '') is string && d.get('notes', '').size() <= 4000
+        && d.get('customer', '') is string && d.get('customer', '').size() <= 200
+        // a job number, if given, must be the one just taken from meta/counter in the same step
+        && (!('jobNo' in d) || d.jobNo == getAfter(/databases/$(db)/documents/meta/counter).data.n);
+    }
+    // A change by a customer holding the job's link: their bike details, the date wanted, their notes,
+    // and their own requests. Never the status, contact details, parts, photos, staff notes,
+    // accounts markers, or anyone else's work items.
+    function custUpdateOk() {
+      let changed = request.resource.data.diff(resource.data).affectedKeys();
+      return changed.hasOnly(['bike', 'make', 'model', 'year', 'due', 'notes', 'updatedAt', 'items', 'lastCustItem'])
+        && request.resource.data.get('notes', '') is string && request.resource.data.get('notes', '').size() <= 4000
+        && (!changed.hasAny(['items']) || custItemOk());
+    }
+    // Exactly one work item changes, and it is the one the app names in lastCustItem:
+    // a new request from this login, or an edit or removal of this login's own request not yet done.
+    function custItemOk() {
+      let id = request.resource.data.get('lastCustItem', '');
+      let after = request.resource.data.get('items', {});
+      let before = resource.data.get('items', {});
+      let d = after.diff(before);
+      return id is string && id.matches('[a-z0-9]{4,40}') && d.affectedKeys().hasOnly([id]) && d.affectedKeys().size() == 1
+        && ((d.addedKeys().size() == 1 && newRequestOk(after[id]))
+            || (d.changedKeys().size() == 1 && ownOpenItem(before[id])
+                && after[id].diff(before[id]).affectedKeys().hasOnly(['text'])
+                && after[id].text is string && after[id].text.size() > 0 && after[id].text.size() <= 500)
+            || (d.removedKeys().size() == 1 && ownOpenItem(before[id])));
+    }
+    function newRequestOk(it) {
+      return it.keys().hasOnly(['text', 'cost', 'done', 'by', 'byUid', 't', 'fromCustomer', 'seen'])
+        && it.get('byUid', '') == request.auth.uid
+        && it.get('done', true) == false && it.get('cost', 0) == 0
+        && it.get('fromCustomer', false) == true && it.get('seen', true) == false
+        && it.get('text', '') is string && it.text.size() > 0 && it.text.size() <= 500
+        && it.get('by', '') is string && it.get('by', '').size() <= 200;
+    }
+    function ownOpenItem(it) {
+      return it.get('byUid', '') == request.auth.uid && it.get('done', false) == false;
+    }
+
     match /jobs/{id} {
       // Opening ONE job needs its private link (the random job id). Customers get a silent anonymous session.
       allow get:    if signedIn();
       // Listing/browsing jobs: staff and TV screens only (plus customers from the old sign-in, for their own jobs)
       allow list:   if isStaff() || isBackup() || isScreen() || mine(resource.data);
-      // Anyone can book a bike in (no account needed); it always starts as "Booked in"
-      // A job number, if given, must be the one just taken from meta/counter in the same step
-      allow create: if isStaff() || (signedIn() && request.resource.data.status == 'booked'
-                                     && request.resource.data.keys().size() < 30
-                                     && (!('jobNo' in request.resource.data)
-                                         || request.resource.data.jobNo == getAfter(/databases/$(db)/documents/meta/counter).data.n));
-      // Customers holding the link can add/edit their requests, but not change the status, name, email, parts, notes or photos
-      allow update: if isStaff() || (signedIn()
-                                     && request.resource.data.status == resource.data.status
-                                     && request.resource.data.get('customer', '') == resource.data.get('customer', '')
-                                     && request.resource.data.get('contactKey', '') == resource.data.get('contactKey', '')
-                                     && request.resource.data.get('jobNo', 0) == resource.data.get('jobNo', 0)
-                                     && request.resource.data.get('notesLog', {}) == resource.data.get('notesLog', {})
-                                     && request.resource.data.get('sentToAccountsAt', 0) == resource.data.get('sentToAccountsAt', 0)
-                                     && request.resource.data.get('parts', {}) == resource.data.get('parts', {})
-                                     && request.resource.data.get('media', {}) == resource.data.get('media', {}));
+      // Anyone can book a bike in (no account needed), using the booking form's fields only
+      allow create: if isStaff() || (signedIn() && bookingOk());
+      // Customers holding the link: only their bike details, notes and their own requests (see custUpdateOk)
+      allow update: if isStaff() || (signedIn() && custUpdateOk());
       allow delete: if isStaff();
     }
 
@@ -58,9 +95,13 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Profiles: your own only, and the email and phone in it must be your login's own,
+    // so nobody can make their profile look like a staff member's
     match /users/{uid} {
       allow read:  if isStaff() || isBackup() || (signedIn() && request.auth.uid == uid);
-      allow write: if signedIn() && request.auth.uid == uid;
+      allow create, update: if signedIn() && request.auth.uid == uid
+                    && request.resource.data.get('email', '') in ['', request.auth.token.get('email', '').lower()]
+                    && request.resource.data.get('phone', '') in ['', request.auth.token.get('phone_number', '')];
     }
 
     match /screens/{token} {

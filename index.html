@@ -598,7 +598,7 @@ html.fullopen, html.fullopen body{overflow:hidden}
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.15.1";
+const APP_VERSION = "2.15.2";
 const APP_BUILD   = "2026-11-24";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -659,6 +659,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.15.2","27 Nov","Security: customers can change only their own requests and their bike details"],
   ["2.15.1","26 Nov","Tap a job's header (name, bike, dates) to open it full size"],
   ["2.15.0","26 Nov","⤢ button on each job opens it full size over the board, in two columns with every section open"],
   ["2.14.0","26 Nov","Costing: task prices are estimates only; the invoice now comes from Parts & labour (new Add labour: hours × rate)"],
@@ -1660,7 +1661,7 @@ function describeChange(job, patch){
   const out = [], q = t => `“${t || '?'}”`, lab = st => STATUSES[st]?.label || st || '—';
   const doneKeys = new Set(Object.keys(patch).filter(k => /^items\.[^.]+\.done$/.test(k)).map(k => k.split('.')[1]));
   for(const [k, v] of Object.entries(patch)){
-    if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo','qbExportedBy'].includes(k)) continue;
+    if(['updatedAt','collectedAt','invoicedAt','contactKey','sentToAccountsBy','jobNo','qbExportedBy','lastCustItem'].includes(k)) continue;
     if(k === 'qbExportedAt'){ out.push('Exported to QuickBooks CSV'); continue; }
     if(/^media\.[^.]+\.deleted$/.test(k)){ out.push('Moved a photo to the bin'); continue; }
     if(/^media\.[^.]+$/.test(k)){ if(!(v && v.__del)) out.push(v.type === 'video' ? 'Added a video' : 'Added a photo'); continue; }
@@ -2523,6 +2524,9 @@ dlg.addEventListener('focusin', e => { if(e.target.matches?.('input.url')) e.tar
 /* ---------- actions ---------- */
 async function act(fn){ try{ await fn(); }catch(err){ console.error(err); toast('Could not save: ' + friendlyError(err)); } }
 const touch = () => ({updatedAt:Date.now()});
+// A customer's change to one of their own requests names that request, so the
+// Firestore rules can check it is theirs and leave everyone else's alone.
+const custMark = item => state.staff ? {} : {lastCustItem:item};
 
 function addItem(id){
   const text = (state.drafts['t:'+id]||'').trim();
@@ -2531,8 +2535,9 @@ function addItem(id){
   if(state.staff){ cost = parseCost(state.drafts['c:'+id]); if(!cost){ const p = parseLine(text); t = p.text; cost = p.cost; } }
   delete state.drafts['t:'+id]; delete state.drafts['c:'+id];
   const by = state.staff ? myName() : (state.jobs[id]?.customer || loadMe().name || '');
-  act(() => B().updateJob(id, {[`items.${uid()}`]:{text:t, cost, done:false, by, byUid:state.user.uid, t:Date.now(),
-    ...(state.staff ? {fromCustomer:false} : {fromCustomer:true, seen:false})}, ...touch()}));
+  const itemId = uid();
+  act(() => B().updateJob(id, {[`items.${itemId}`]:{text:t, cost, done:false, by, byUid:state.user.uid, t:Date.now(),
+    ...(state.staff ? {fromCustomer:false} : {fromCustomer:true, seen:false})}, ...custMark(itemId), ...touch()}));
 }
 
 document.addEventListener('click', e => { document.querySelectorAll('details.xmenu[open]').forEach(d => { if(!d.contains(e.target)) d.removeAttribute('open'); }); });
@@ -2582,12 +2587,12 @@ app.addEventListener('click', async e => {
     case 'add-item': addItem(id); break;
     case 'edit-text': {
       const v = prompt('Edit item', it.text); if(v==null || !v.trim()) return;
-      act(() => B().updateJob(id, {[`items.${item}.text`]:v.trim(), ...touch()})); break; }
+      act(() => B().updateJob(id, {[`items.${item}.text`]:v.trim(), ...custMark(item), ...touch()})); break; }
     case 'edit-cost': {
       const v = prompt(`Estimate for this task (${CURRENCY}). Only an estimate: the invoice uses Parts & labour.`, it.cost||''); if(v==null) return;
       act(() => B().updateJob(id, {[`items.${item}.cost`]:parseCost(v), ...touch()})); break; }
     case 'del-item':
-      if(confirm(`Remove "${it.text}"?`)) act(() => B().updateJob(id, {[`items.${item}`]:B().del(), ...touch()})); break;
+      if(confirm(`Remove "${it.text}"?`)) act(() => B().updateJob(id, {[`items.${item}`]:B().del(), ...custMark(item), ...touch()})); break;
     case 'collected': act(() => B().updateJob(id, {status:'collected', collectedAt:Date.now(), ...touch()})); break;
     case 'add-part': addPart(id); break;
     case 'add-labour': addLabour(id); break;
