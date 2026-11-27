@@ -450,6 +450,9 @@
   .ver{font-size:11px;color:var(--muted);text-align:center;margin-top:28px;opacity:.7;position:relative;width:max-content;margin-left:auto;margin-right:auto;cursor:help;padding:4px 6px}
   .ver:hover,.ver:focus{opacity:1;outline:none}
   .ver .appname{font-weight:700;letter-spacing:.02em}
+  /* Chequered flag on "Ready for collection" */
+  .flag,.s-ready .spill::before,.spill.mini.s-ready::before{content:"";display:inline-block;width:1.15em;height:1.15em;vertical-align:-.2em;margin-right:.35em;background:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M2.4 1v14' stroke='%23111' stroke-width='1.6' stroke-linecap='round'/><rect x='3' y='2' width='11' height='8' fill='%23fff' stroke='%23111' stroke-width='.7'/><g fill='%23111'><rect x='3.00' y='2.00' width='2.75' height='2.67'/><rect x='8.50' y='2.00' width='2.75' height='2.67'/><rect x='5.75' y='4.67' width='2.75' height='2.67'/><rect x='11.25' y='4.67' width='2.75' height='2.67'/><rect x='3.00' y='7.34' width='2.75' height='2.67'/><rect x='8.50' y='7.34' width='2.75' height='2.67'/></g></svg>") center/contain no-repeat}
+  .jtop .flag{flex:0 0 auto;align-self:center;width:24px;height:24px;margin:0 0 0 6px;background-image:url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><path d='M2.4 1v14' stroke='%238a8a90' stroke-width='1.6' stroke-linecap='round'/><rect x='3' y='2' width='11' height='8' fill='%23fff' stroke='%23111' stroke-width='.7'/><g fill='%23111'><rect x='3.00' y='2.00' width='2.75' height='2.67'/><rect x='8.50' y='2.00' width='2.75' height='2.67'/><rect x='5.75' y='4.67' width='2.75' height='2.67'/><rect x='11.25' y='4.67' width='2.75' height='2.67'/><rect x='3.00' y='7.34' width='2.75' height='2.67'/><rect x='8.50' y='7.34' width='2.75' height='2.67'/></g></svg>")}
   .verpop{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:min(340px,86vw);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:left;box-shadow:0 10px 30px #000a;z-index:50;color:var(--text);font-size:13px;cursor:default}
   .ver:hover .verpop,.ver:focus .verpop,.ver:focus-within .verpop{display:block}
   .verpop b{display:block;margin-bottom:6px;font-size:13px}
@@ -598,10 +601,10 @@ html.fullopen, html.fullopen body{overflow:hidden}
    ===================================================================== */
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
 // The app's own name, shown only in the footer version line. The workshop's branding stays as SHOP_NAME + LOGO.
-const APP_NAME = "Pitboard";
+const APP_NAME = "Paddock";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.16.0";
+const APP_VERSION = "2.17.0";
 const APP_BUILD   = "2026-11-27";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
@@ -662,6 +665,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.17.0","27 Nov","App renamed Paddock (footer); chequered flag on Ready for collection"],
   ["2.16.0","27 Nov","Pitboard name added to the footer of every page"],
   ["2.15.2","27 Nov","Security: customers can change only their own requests and their bike details"],
   ["2.15.1","26 Nov","Tap a job's header (name, bike, dates) to open it full size"],
@@ -1262,7 +1266,7 @@ function jobCard(job){
       ${state.full === id ? '' : `<button class="fullbtn" data-act="full" data-id="${id}" title="Open this job full size" aria-label="Open full size">⤢</button>`}
       ${staff
         ? `<select class="stsel st-${esc(job.status)}" data-act="status" data-id="${id}" aria-label="Status">${Object.entries(STATUSES).map(([k,v]) =>
-            `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select>`
+            `<option value="${k}" ${job.status===k?'selected':''}>${v.label}</option>`).join('')}</select>${job.status==='ready'?'<span class="flag" title="Ready for collection" aria-hidden="true"></span>':''}`
         : `<span class="spill">${esc(STATUSES[job.status]?.label || job.status)}</span>`}</div>
       <h3>${esc(job.customer)}</h3>
       <div class="jmeta">
