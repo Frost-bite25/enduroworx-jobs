@@ -449,6 +449,7 @@
   .tv-empty{font-size:2.5vw;color:var(--muted);text-align:center;margin-top:20vh;line-height:1.4}
   .ver{font-size:11px;color:var(--muted);text-align:center;margin-top:28px;opacity:.7;position:relative;width:max-content;margin-left:auto;margin-right:auto;cursor:help;padding:4px 6px}
   .ver:hover,.ver:focus{opacity:1;outline:none}
+  .ver .appname{font-weight:700;letter-spacing:.02em}
   .verpop{display:none;position:absolute;bottom:calc(100% + 6px);left:50%;transform:translateX(-50%);width:min(340px,86vw);background:var(--panel2);border:1px solid var(--line);border-radius:12px;padding:12px 14px;text-align:left;box-shadow:0 10px 30px #000a;z-index:50;color:var(--text);font-size:13px;cursor:default}
   .ver:hover .verpop,.ver:focus .verpop,.ver:focus-within .verpop{display:block}
   .verpop b{display:block;margin-bottom:6px;font-size:13px}
@@ -596,10 +597,12 @@ html.fullopen, html.fullopen body{overflow:hidden}
    SETTINGS — edit these
    ===================================================================== */
 const SHOP_NAME = "Enduroworx Plettenberg Bay";
+// The app's own name, shown only in the footer version line. The workshop's branding stays as SHOP_NAME + LOGO.
+const APP_NAME = "Pitboard";
 
 // Bump on every release so you can see which version a phone or the TV is running
-const APP_VERSION = "2.15.2";
-const APP_BUILD   = "2026-11-24";
+const APP_VERSION = "2.16.0";
+const APP_BUILD   = "2026-11-27";
 const CURRENCY  = "R";
 // Job numbers: every new job gets the next number, e.g. EW-1001
 const JOB_PREFIX = "EW";
@@ -659,6 +662,7 @@ function toggleTheme(){
 const WA_ICON = `<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.5 0-3-.4-4.3-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.2-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.4c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.1-1.2l-.5-.2z"/></svg>`;
 // What changed recently: shown when hovering (or tapping) the version number
 const CHANGELOG = [
+  ["2.16.0","27 Nov","Pitboard name added to the footer of every page"],
   ["2.15.2","27 Nov","Security: customers can change only their own requests and their bike details"],
   ["2.15.1","26 Nov","Tap a job's header (name, bike, dates) to open it full size"],
   ["2.15.0","26 Nov","⤢ button on each job opens it full size over the board, in two columns with every section open"],
@@ -694,7 +698,7 @@ const CHANGELOG = [
   ["2.1.0","23 Nov","Bike make badges on job cards"],
   ["2.0.0","22 Nov","Activity log: who changed what, and when"],
 ];
-const VERSION_TAG = `<div class="ver" tabindex="0">v${APP_VERSION} · ${APP_BUILD}<div class="verpop" role="tooltip"><b>Latest changes</b><ul>${
+const VERSION_TAG = `<div class="ver" tabindex="0"><span class="appname">${APP_NAME}</span> v${APP_VERSION} · ${APP_BUILD}<div class="verpop" role="tooltip"><b>Latest changes</b><ul>${
   CHANGELOG.slice(0,6).map(([v,d,t]) => `<li><span>v${v} · ${d}</span>${t}</li>`).join('')}</ul></div></div>`;
 console.info(`Enduroworx job board v${APP_VERSION} (${APP_BUILD})`);
 
